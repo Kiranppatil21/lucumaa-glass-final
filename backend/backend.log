@@ -1,0 +1,199 @@
+INFO:     Will watch for changes in these directories: ['/Users/admin/Desktop/Glass/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [55038] using WatchFiles
+ERROR:server:❌ Failed to load ERP routes: No module named 'emergentintegrations'
+ERROR:server:Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 1992, in <module>
+    from erp_routes import erp_router, init_erp_routes
+  File "/Users/admin/Desktop/Glass/backend/erp_routes.py", line 37, in <module>
+    from routers.ai_forecast import forecast_router
+  File "/Users/admin/Desktop/Glass/backend/routers/ai_forecast.py", line 10, in <module>
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+ModuleNotFoundError: No module named 'emergentintegrations'
+
+INFO:     Started server process [55089]
+INFO:     Waiting for application startup.
+ERROR:    Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 608, in __aenter__
+    await self._router.startup()
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 709, in startup
+    await handler()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2034, in startup_tasks
+    await seed_initial_data()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2037, in seed_initial_data
+    product_count = await db.products.count_documents({})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1915, in count_documents
+    return self._retryable_non_cursor_read(_cmd, session)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1924, in _retryable_non_cursor_read
+    with client._tmp_session(session) as s:
+         ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1885, in _tmp_session
+    s = self._ensure_session(session)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1868, in _ensure_session
+    return self.__start_session(True, causal_consistency=False)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1811, in __start_session
+    self._topology._check_implicit_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 583, in _check_implicit_session_support
+    self._check_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 599, in _check_session_support
+    self._select_servers_loop(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        readable_server_selector, self.get_server_selection_timeout(), None
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 269, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+        f"{self._error_message(selector)}, Timeout: {timeout}s, Topology Description: {self.description!r}"
+    )
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [Errno 61] Connection refused, Timeout: 30s, Topology Description: <TopologyDescription id: 695d3b894ec2b8b785104285, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 61] Connection refused')>]>
+
+ERROR:    Application startup failed. Exiting.
+❌ Failed to load AI Chat router: No module named 'emergentintegrations'
+✅ SEO routes loaded (sitemap, robots.txt, RSS)
+WARNING:  WatchFiles detected changes in 'seed_admin.py'. Reloading...
+WARNING:  WatchFiles detected changes in 'seed_admin.py'. Reloading...
+ERROR:server:❌ Failed to load ERP routes: No module named 'emergentintegrations'
+ERROR:server:Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 1992, in <module>
+    from erp_routes import erp_router, init_erp_routes
+  File "/Users/admin/Desktop/Glass/backend/erp_routes.py", line 37, in <module>
+    from routers.ai_forecast import forecast_router
+  File "/Users/admin/Desktop/Glass/backend/routers/ai_forecast.py", line 10, in <module>
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+ModuleNotFoundError: No module named 'emergentintegrations'
+
+INFO:     Started server process [71870]
+INFO:     Waiting for application startup.
+ERROR:    Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 608, in __aenter__
+    await self._router.startup()
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 709, in startup
+    await handler()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2034, in startup_tasks
+    await seed_initial_data()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2037, in seed_initial_data
+    product_count = await db.products.count_documents({})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1915, in count_documents
+    return self._retryable_non_cursor_read(_cmd, session)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1924, in _retryable_non_cursor_read
+    with client._tmp_session(session) as s:
+         ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1885, in _tmp_session
+    s = self._ensure_session(session)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1868, in _ensure_session
+    return self.__start_session(True, causal_consistency=False)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1811, in __start_session
+    self._topology._check_implicit_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 583, in _check_implicit_session_support
+    self._check_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 599, in _check_session_support
+    self._select_servers_loop(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        readable_server_selector, self.get_server_selection_timeout(), None
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 269, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+        f"{self._error_message(selector)}, Timeout: {timeout}s, Topology Description: {self.description!r}"
+    )
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [Errno 61] Connection refused, Timeout: 30s, Topology Description: <TopologyDescription id: 695d42e463119160df67dd0f, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 61] Connection refused')>]>
+
+ERROR:    Application startup failed. Exiting.
+❌ Failed to load AI Chat router: No module named 'emergentintegrations'
+✅ SEO routes loaded (sitemap, robots.txt, RSS)
+WARNING:  WatchFiles detected changes in 'seed_admin.py'. Reloading...
+ERROR:server:❌ Failed to load ERP routes: No module named 'emergentintegrations'
+ERROR:server:Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 1992, in <module>
+    from erp_routes import erp_router, init_erp_routes
+  File "/Users/admin/Desktop/Glass/backend/erp_routes.py", line 37, in <module>
+    from routers.ai_forecast import forecast_router
+  File "/Users/admin/Desktop/Glass/backend/routers/ai_forecast.py", line 10, in <module>
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+ModuleNotFoundError: No module named 'emergentintegrations'
+
+INFO:     Started server process [72230]
+INFO:     Waiting for application startup.
+ERROR:    Traceback (most recent call last):
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 732, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 608, in __aenter__
+    await self._router.startup()
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/starlette/routing.py", line 709, in startup
+    await handler()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2034, in startup_tasks
+    await seed_initial_data()
+  File "/Users/admin/Desktop/Glass/backend/server.py", line 2037, in seed_initial_data
+    product_count = await db.products.count_documents({})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1915, in count_documents
+    return self._retryable_non_cursor_read(_cmd, session)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/collection.py", line 1924, in _retryable_non_cursor_read
+    with client._tmp_session(session) as s:
+         ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/usr/local/Cellar/python@3.14/3.14.1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1885, in _tmp_session
+    s = self._ensure_session(session)
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1868, in _ensure_session
+    return self.__start_session(True, causal_consistency=False)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/mongo_client.py", line 1811, in __start_session
+    self._topology._check_implicit_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 583, in _check_implicit_session_support
+    self._check_session_support()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 599, in _check_session_support
+    self._select_servers_loop(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        readable_server_selector, self.get_server_selection_timeout(), None
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/admin/Desktop/Glass/.venv/lib/python3.14/site-packages/pymongo/topology.py", line 269, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+        f"{self._error_message(selector)}, Timeout: {timeout}s, Topology Description: {self.description!r}"
+    )
+pymongo.errors.ServerSelectionTimeoutError: localhost:27017: [Errno 61] Connection refused, Timeout: 30s, Topology Description: <TopologyDescription id: 695d4324b8664efe7bd8f1e1, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 61] Connection refused')>]>
+
+ERROR:    Application startup failed. Exiting.
+❌ Failed to load AI Chat router: No module named 'emergentintegrations'
+✅ SEO routes loaded (sitemap, robots.txt, RSS)
+INFO:     Stopping reloader process [55038]
