@@ -443,6 +443,32 @@ async def send_job_work_email(order: dict):
         html_part = MIMEText(email_html, 'html')
         message.attach(html_part)
         
+        # Generate and attach PDF invoice
+        try:
+            from email.mime.application import MIMEApplication
+            import io
+            import httpx
+            
+            # Call PDF generation endpoint
+            async with httpx.AsyncClient() as client:
+                pdf_response = await client.get(
+                    f"http://localhost:5001/api/pdf/job-work-invoice/{order['id']}",
+                    timeout=30.0
+                )
+                if pdf_response.status_code == 200:
+                    pdf_attachment = MIMEApplication(pdf_response.content, _subtype='pdf')
+                    pdf_attachment.add_header(
+                        'Content-Disposition', 
+                        'attachment', 
+                        filename=f'job_work_{order["job_work_number"]}.pdf'
+                    )
+                    message.attach(pdf_attachment)
+                    logging.info("✅ PDF attached to job work email")
+                else:
+                    logging.warning(f"⚠️ Failed to generate PDF: {pdf_response.status_code}")
+        except Exception as pdf_error:
+            logging.warning(f"⚠️ Could not attach PDF to email: {str(pdf_error)}")
+        
         await aiosmtplib.send(
             message,
             hostname=SMTP_HOST,

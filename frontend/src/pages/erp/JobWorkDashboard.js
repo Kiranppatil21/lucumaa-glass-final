@@ -19,6 +19,8 @@ const JobWorkDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [shareModalOrder, setShareModalOrder] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 15;
 
   useEffect(() => {
     fetchData();
@@ -111,7 +113,14 @@ const JobWorkDashboard = () => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
+  // Sort by latest first
+  const sortedOrders = [...orders].sort((a, b) => {
+    const dateA = new Date(a.created_at || 0);
+    const dateB = new Date(b.created_at || 0);
+    return dateB - dateA; // Latest first
+  });
+
+  const filteredOrders = sortedOrders.filter(order => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -122,6 +131,13 @@ const JobWorkDashboard = () => {
     }
     return true;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ordersPerPage,
+    currentPage * ordersPerPage
+  );
 
   if (loading && !stats) {
     return (
@@ -255,7 +271,7 @@ const JobWorkDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order) => {
+                  {paginatedOrders.map((order) => {
                     const status = statusConfig[order.status] || statusConfig.pending;
                     const StatusIcon = status.icon;
                     const nextStatus = getNextStatus(order.status);
@@ -336,6 +352,49 @@ const JobWorkDashboard = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t mt-4">
+              <p className="text-sm text-slate-600">
+                Showing {(currentPage - 1) * ordersPerPage + 1} to {Math.min(currentPage * ordersPerPage, filteredOrders.length)} of {filteredOrders.length} orders
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                    const pageNum = currentPage <= 3 ? i + 1 : currentPage + i - 2;
+                    if (pageNum > totalPages) return null;
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="w-8"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

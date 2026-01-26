@@ -7,11 +7,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import io
 import logging
+import re
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
+from math import sin, cos, pi
 import bcrypt
 import jwt
 import razorpay
@@ -2317,7 +2319,7 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.graphics.shapes import Drawing, Line, Rect, Circle, String
+    from reportlab.graphics.shapes import Drawing, Line, Rect, Circle, String, Polygon, Path, Ellipse
     
     config = await db.glass_configs.find_one({"id": config_id}, {"_id": 0})
     if not config:
@@ -2423,8 +2425,8 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
             drawing_width = 160*mm
             drawing_height = 85*mm
             
-            glass_w = config.get('width_mm', 1000)
-            glass_h = config.get('height_mm', 1000)
+            glass_w = float(config.get('width_mm', 1000))
+            glass_h = float(config.get('height_mm', 1000))
             margin = 15*mm
             usable_width = drawing_width - 2*margin
             usable_height = drawing_height - 2*margin
@@ -2432,6 +2434,48 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
             
             offset_x = margin + (usable_width - glass_w * scale) / 2
             offset_y = margin + (usable_height - glass_h * scale) / 2
+            
+            def as_float(value, default=0.0):
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return default
+            
+            normalized_cutouts = []
+            for idx, raw in enumerate(cutouts, 1):
+                shape_raw = raw.get("shape") or raw.get("type") or "rectangle"
+                shape = str(shape_raw).lower()
+                diameter_mm = as_float(raw.get("diameter"), 0.0)
+                radius_mm = as_float(raw.get("radius"), 0.0)
+                width_mm = as_float(raw.get("width"), 0.0)
+                height_mm = as_float(raw.get("height"), width_mm)
+                if not width_mm and diameter_mm:
+                    width_mm = diameter_mm
+                if not height_mm and diameter_mm:
+                    height_mm = diameter_mm
+                if not diameter_mm and radius_mm:
+                    diameter_mm = radius_mm * 2
+                half_w = width_mm / 2 if width_mm else diameter_mm / 2
+                half_h = height_mm / 2 if height_mm else diameter_mm / 2
+                x_mm = as_float(raw.get("x"), 0.0)
+                y_mm = as_float(raw.get("y"), 0.0)
+                left_edge = as_float(raw.get("left_edge"), max(0.0, x_mm - half_w))
+                right_edge = as_float(raw.get("right_edge"), max(0.0, glass_w - x_mm - half_w))
+                top_edge = as_float(raw.get("top_edge"), max(0.0, glass_h - y_mm - half_h))
+                bottom_edge = as_float(raw.get("bottom_edge"), max(0.0, y_mm - half_h))
+                normalized_cutouts.append({
+                    "number": str(raw.get("number") or idx),
+                    "shape": shape,
+                    "x": x_mm,
+                    "y": y_mm,
+                    "width": width_mm,
+                    "height": height_mm,
+                    "diameter": diameter_mm,
+                    "left_edge": left_edge,
+                    "right_edge": right_edge,
+                    "top_edge": top_edge,
+                    "bottom_edge": bottom_edge,
+                })
             
             drawing = Drawing(drawing_width, drawing_height)
             
@@ -2447,44 +2491,97 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
                 strokeWidth=2
             ))
             
-            # Draw cutouts
             cutout_colors = {
                 'circle': colors.HexColor('#3B82F6'),
                 'rectangle': colors.HexColor('#22C55E'),
                 'square': colors.HexColor('#F59E0B'),
+                'triangle': colors.HexColor('#F97316'),
+                'diamond': colors.HexColor('#6366F1'),
+                'oval': colors.HexColor('#10B981'),
+                'pentagon': colors.HexColor('#0EA5E9'),
+                'hexagon': colors.HexColor('#A855F7'),
+                'octagon': colors.HexColor('#14B8A6'),
+                'star': colors.HexColor('#F59E0B'),
+                'heart': colors.HexColor('#EF4444'),
             }
             
-            for i, c in enumerate(cutouts, 1):
-                shape = c.get("shape", "rectangle")
-                cx = offset_x + c.get("x", 0) * scale
-                cy = offset_y + c.get("y", 0) * scale
+            for cutout in normalized_cutouts:
+                shape = cutout["shape"]
+                cx = offset_x + cutout["x"] * scale
+                cy = offset_y + cutout["y"] * scale
                 cutout_color = cutout_colors.get(shape, colors.HexColor('#3B82F6'))
                 
                 if shape == "circle":
-                    radius = c.get("radius", 10) * scale
+                    radius = (cutout["diameter"] / 2) * scale if cutout["diameter"] else 10 * scale
                     drawing.add(Circle(cx, cy, radius, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape in ["pentagon", "hexagon", "octagon"]:
+                    sides = 5 if shape == "pentagon" else 6 if shape == "hexagon" else 8
+                    radius = (cutout["diameter"] or cutout["width"] or cutout["height"] or 20) / 2 * scale
+                    points = []
+                    for i in range(sides):
+                        angle = (i * 2 * pi / sides) - (pi / 2)
+                        points.extend([cx + radius * cos(angle), cy + radius * sin(angle)])
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == "triangle":
+                    w = (cutout["width"] or 20) * scale
+                    h = (cutout["height"] or w) * scale
+                    points = [
+                        cx, cy + h/2,
+                        cx - w/2, cy - h/2,
+                        cx + w/2, cy - h/2
+                    ]
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == "diamond":
+                    size = max(cutout["width"], cutout["height"], cutout["diameter"], 20) * scale / 2
+                    points = [
+                        cx, cy + size,
+                        cx + size, cy,
+                        cx, cy - size,
+                        cx - size, cy
+                    ]
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == "oval":
+                    w = (cutout["width"] or cutout["diameter"] or 20) * scale
+                    h = (cutout["height"] or cutout["width"] or cutout["diameter"] or 20) * scale
+                    drawing.add(Ellipse(cx, cy, w/2, h/2, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == "star":
+                    outer_r = (cutout["diameter"] or cutout["width"] or 20) / 2 * scale
+                    inner_r = outer_r * 0.38
+                    points = []
+                    for i in range(10):
+                        angle = (i * pi / 5) - (pi / 2)
+                        r = outer_r if i % 2 == 0 else inner_r
+                        points.extend([cx + r * cos(angle), cy + r * sin(angle)])
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == "heart":
+                    path = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
+                    scale_factor = ((cutout["diameter"] or cutout["width"] or 20) / 40) * scale
+                    for i in range(101):
+                        t = (i / 100) * 2 * pi
+                        x_val = 16 * (sin(t) ** 3) * scale_factor
+                        y_val = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        if i == 0:
+                            path.moveTo(cx + x_val, cy + y_val)
+                        else:
+                            path.lineTo(cx + x_val, cy + y_val)
+                    path.closePath()
+                    drawing.add(path)
                 else:
-                    w = c.get("width", 50) * scale
-                    h = c.get("height", 50) * scale
+                    w = (cutout["width"] or cutout["diameter"] or 20) * scale
+                    h = (cutout["height"] or cutout["width"] or cutout["diameter"] or 20) * scale
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 
-                # Center mark
                 mark_size = 3*mm
                 drawing.add(Line(cx - mark_size, cy, cx + mark_size, cy, strokeColor=colors.red, strokeWidth=0.5))
                 drawing.add(Line(cx, cy - mark_size, cx, cy + mark_size, strokeColor=colors.red, strokeWidth=0.5))
-                
-                # Label
-                drawing.add(String(cx, cy + 4*mm, str(i), fontSize=7, fillColor=colors.white, textAnchor='middle'))
+                drawing.add(String(cx, cy + 4*mm, cutout["number"], fontSize=7, fillColor=colors.white, textAnchor='middle'))
             
-            # Dimension lines
             dim_offset = 8*mm
-            # Width
             drawing.add(Line(offset_x, offset_y - dim_offset, offset_x + glass_w * scale, offset_y - dim_offset, strokeColor=colors.black, strokeWidth=0.5))
             drawing.add(Line(offset_x, offset_y - dim_offset - 2*mm, offset_x, offset_y - dim_offset + 2*mm, strokeColor=colors.black, strokeWidth=0.5))
             drawing.add(Line(offset_x + glass_w * scale, offset_y - dim_offset - 2*mm, offset_x + glass_w * scale, offset_y - dim_offset + 2*mm, strokeColor=colors.black, strokeWidth=0.5))
             drawing.add(String(offset_x + (glass_w * scale) / 2, offset_y - dim_offset - 4*mm, f"{glass_w} mm", fontSize=8, textAnchor='middle'))
             
-            # Height
             drawing.add(Line(offset_x - dim_offset, offset_y, offset_x - dim_offset, offset_y + glass_h * scale, strokeColor=colors.black, strokeWidth=0.5))
             drawing.add(Line(offset_x - dim_offset - 2*mm, offset_y, offset_x - dim_offset + 2*mm, offset_y, strokeColor=colors.black, strokeWidth=0.5))
             drawing.add(Line(offset_x - dim_offset - 2*mm, offset_y + glass_h * scale, offset_x - dim_offset + 2*mm, offset_y + glass_h * scale, strokeColor=colors.black, strokeWidth=0.5))
@@ -2492,19 +2589,25 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
             elements.append(drawing)
             elements.append(Spacer(1, 5*mm))
             
-            # Cutout Details Table
             elements.append(Paragraph("<b>Cutout Specifications</b>", styles['Heading2']))
-            cutout_data = [["#", "Type", "Position (X,Y)", "Size"]]
-            for i, c in enumerate(cutouts, 1):
-                shape = c.get("shape", "rectangle")
-                x, y = c.get("x", 0), c.get("y", 0)
-                if shape == "circle":
-                    size = f"Ø {c.get('radius', 0)*2} mm"
+            cutout_data = [["#", "Type", "Position (X,Y) mm", "Size (mm)", "Edges L/R/T/B (mm)"]]
+            for cutout in normalized_cutouts:
+                if cutout["diameter"]:
+                    size_txt = f"Ø {cutout['diameter']:.2f}"
                 else:
-                    size = f"{c.get('width', 0)} × {c.get('height', 0)} mm"
-                cutout_data.append([str(i), shape.title(), f"({x}, {y})", size])
+                    width_txt = f"{cutout['width']:.2f}" if cutout['width'] else "0.00"
+                    height_txt = f"{cutout['height']:.2f}" if cutout['height'] else width_txt
+                    size_txt = f"{width_txt} × {height_txt}"
+                edges_txt = f"{cutout['left_edge']:.2f} / {cutout['right_edge']:.2f} / {cutout['top_edge']:.2f} / {cutout['bottom_edge']:.2f}"
+                cutout_data.append([
+                    cutout["number"],
+                    cutout["shape"].title(),
+                    f"({cutout['x']:.2f}, {cutout['y']:.2f})",
+                    size_txt,
+                    edges_txt
+                ])
             
-            cutout_table = Table(cutout_data, colWidths=[15*mm, 35*mm, 50*mm, 50*mm])
+            cutout_table = Table(cutout_data, colWidths=[15*mm, 30*mm, 45*mm, 45*mm, 55*mm])
             cutout_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -2531,18 +2634,51 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
 
 @api_router.get("/admin/orders")
-async def get_all_orders(current_user: dict = Depends(get_current_user)):
+async def get_all_orders(
+    page: int = 1,
+    limit: int = 20,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
     allowed_roles = ['admin', 'super_admin', 'owner', 'manager', 'hr', 'accountant', 'finance', 'operator']
     if current_user['role'] not in allowed_roles:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    orders = await db.orders.find({}, {"_id": 0}).to_list(1000)
+    limit = max(1, min(limit, 200))
+    page = max(1, page)
+    
+    filter_query: dict = {}
+    if status:
+        filter_query["status"] = status
+    if search:
+        safe_search = re.escape(search.strip())
+        search_regex = {"$regex": safe_search, "$options": "i"}
+        filter_query["$or"] = [
+            {"order_number": search_regex},
+            {"customer_name": search_regex},
+            {"company_name": search_regex},
+            {"customer_email": search_regex},
+        ]
+    
+    total_count = await db.orders.count_documents(filter_query)
+    skip = (page - 1) * limit
+    
+    orders = await db.orders.find(filter_query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    
     for order in orders:
         if isinstance(order.get('created_at'), str):
             order['created_at'] = datetime.fromisoformat(order['created_at'])
         if isinstance(order.get('updated_at'), str):
             order['updated_at'] = datetime.fromisoformat(order['updated_at'])
-    return orders
+    
+    return {
+        "orders": orders,
+        "total": total_count,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total_count + limit - 1) // limit
+    }
 
 @api_router.patch("/admin/orders/{order_id}/status")
 async def update_order_status(

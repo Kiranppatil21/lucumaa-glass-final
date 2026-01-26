@@ -12,7 +12,8 @@ import {
   FileText, Loader2, Triangle, ChevronDown,
   Hexagon, Heart, MousePointer, GripVertical,
   Copy, Grid3X3, LayoutTemplate, Magnet, Download, Eye, Crosshair,
-  Wrench, Truck, MapPin, Calculator, Share2, MessageCircle, Mail, X, QrCode, Link2, Maximize2, Minimize2
+  Wrench, Truck, MapPin, Calculator, Share2, MessageCircle, Mail, X, QrCode, Link2, Maximize2, Minimize2,
+  Star, Octagon, Diamond
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
@@ -28,6 +29,11 @@ const CUTOUT_SHAPES = [
   { id: 'T', name: 'Triangle', icon: Triangle, label: 'T', defaultSize: { width: 100, height: 80 } },
   { id: 'HX', name: 'Hexagon', icon: Hexagon, label: 'HX', defaultSize: { diameter: 60 } },
   { id: 'HR', name: 'Heart', icon: Heart, label: 'HR', defaultSize: { diameter: 60 } },
+  { id: 'ST', name: 'Star', icon: Star, label: 'ST', defaultSize: { diameter: 70 } },
+  { id: 'PT', name: 'Pentagon', icon: Hexagon, label: 'PT', defaultSize: { diameter: 60 } },
+  { id: 'OV', name: 'Oval', icon: Circle, label: 'OV', defaultSize: { width: 100, height: 60 } },
+  { id: 'DM', name: 'Diamond', icon: Diamond, label: 'DM', defaultSize: { width: 70, height: 70 } },
+  { id: 'OC', name: 'Octagon', icon: Octagon, label: 'OC', defaultSize: { diameter: 60 } },
 ];
 
 // Job Work Types
@@ -61,6 +67,11 @@ const CUTOUT_COLORS = {
   T: { normal: '#F59E0B', highlight: '#FBBF24', name: 'Orange' },
   HX: { normal: '#8B5CF6', highlight: '#A78BFA', name: 'Purple' },
   HR: { normal: '#EC4899', highlight: '#F472B6', name: 'Pink' },
+  ST: { normal: '#FBBF24', highlight: '#FCD34D', name: 'Yellow' },
+  PT: { normal: '#06B6D4', highlight: '#22D3EE', name: 'Cyan' },
+  OV: { normal: '#A855F7', highlight: '#C084FC', name: 'Violet' },
+  DM: { normal: '#F97316', highlight: '#FB923C', name: 'Amber' },
+  OC: { normal: '#10B981', highlight: '#34D399', name: 'Emerald' },
 };
 
 // View modes
@@ -470,32 +481,80 @@ const JobWork3DConfigurator = () => {
 
     let mesh;
     if (cutout.type === 'HR') {
-      // Heart shape
-      const size = (cutout.diameter || 50) * scale;
-      const heartShape = [];
-      const segments = 64;
-      for (let i = 0; i <= segments; i++) {
-        const t = (i / segments) * Math.PI * 2;
-        const x = size * 0.5 * (16 * Math.pow(Math.sin(t), 3));
-        const y = size * 0.5 * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-        heartShape.push(new BABYLON.Vector3(x * 0.03, y * 0.03, 0));
+      // Heart shape - proper heart using CreatePolygon
+      const size = (cutout.diameter || 60) * scale / 2;
+      const heartPoints = [];
+      // Create heart shape points
+      for (let i = 0; i <= 100; i++) {
+        const t = (i / 100) * Math.PI * 2;
+        const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * size / 20;
+        heartPoints.push(new BABYLON.Vector3(x, y, 0));
       }
-      try {
-        mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, { 
-          shape: heartShape, 
-          depth: 10,
-          sideOrientation: BABYLON.Mesh.DOUBLESIDE
-        }, scene, earcut);
-        mesh.rotation.x = -Math.PI / 2;
-      } catch (e) {
-        // Fallback to cylinder if heart creation fails
-        mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-          diameter: (cutout.diameter || 50) * scale,
-          height: 10,
-          tessellation: 32
-        }, scene);
-        mesh.rotation.x = Math.PI / 2;
+      mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
+        shape: heartPoints,
+        depth: 10,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+      mesh.rotation.x = -Math.PI / 2;
+    } else if (cutout.type === 'ST') {
+      // Star shape - proper 5-pointed star using CreatePolygon
+      const outerRadius = (cutout.diameter || 70) * scale / 2;
+      const innerRadius = outerRadius * 0.38;
+      const starPoints = [];
+      for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI / 5) - Math.PI / 2;
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        starPoints.push(new BABYLON.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius,
+          0
+        ));
       }
+      mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
+        shape: starPoints,
+        depth: 10,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+      mesh.rotation.x = -Math.PI / 2;
+    } else if (cutout.type === 'PT') {
+      // Pentagon - 5-sided cylinder
+      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
+        diameter: (cutout.diameter || 60) * scale,
+        height: 10,
+        tessellation: 5
+      }, scene);
+      mesh.rotation.x = Math.PI / 2;
+    } else if (cutout.type === 'OC') {
+      // Octagon - 8-sided cylinder
+      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
+        diameter: (cutout.diameter || 60) * scale,
+        height: 10,
+        tessellation: 8
+      }, scene);
+      mesh.rotation.x = Math.PI / 2;
+    } else if (cutout.type === 'OV') {
+      // Oval - scaled cylinder
+      const w = (cutout.width || 100) * scale;
+      const h = (cutout.height || 60) * scale;
+      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
+        diameter: Math.max(w, h),
+        height: 10,
+        tessellation: 32
+      }, scene);
+      mesh.scaling.x = w / Math.max(w, h);
+      mesh.scaling.y = h / Math.max(w, h);
+      mesh.rotation.x = Math.PI / 2;
+    } else if (cutout.type === 'DM') {
+      // Diamond - rotated square box
+      const w = (cutout.width || 70) * scale;
+      const h = (cutout.height || 70) * scale;
+      mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
+        width: w,
+        height: h,
+        depth: 10
+      }, scene);
+      mesh.rotation.z = Math.PI / 4; // 45 degree rotation
     } else if (['SH', 'HX'].includes(cutout.type)) {
       const tessellation = cutout.type === 'HX' ? 6 : 32;
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
@@ -505,29 +564,15 @@ const JobWork3DConfigurator = () => {
       }, scene);
       mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'T') {
-      const w = (cutout.width || 100) * scale;
-      const h = (cutout.height || 80) * scale;
-      const triangleShape = [
-        new BABYLON.Vector3(0, h / 2, 0),
-        new BABYLON.Vector3(-w / 2, -h / 2, 0),
-        new BABYLON.Vector3(w / 2, -h / 2, 0)
-      ];
-      try {
-        mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, { 
-          shape: triangleShape, 
-          depth: 10, 
-          sideOrientation: BABYLON.Mesh.DOUBLESIDE
-        }, scene, earcut);
-        mesh.rotation.x = -Math.PI / 2;
-      } catch (e) {
-        // Fallback to simple box if extrude fails
-        console.warn('Triangle extrude failed, using simple mesh:', e);
-        mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
-          width: w,
-          height: h,
-          depth: 10
-        }, scene);
-      }
+      // Triangle - 3-sided cylinder (reliable)
+      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale;
+      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
+        diameter: size,
+        height: 10,
+        tessellation: 3
+      }, scene);
+      mesh.rotation.x = Math.PI / 2;
+      mesh.rotation.z = Math.PI / 6; // Rotate to point up
     } else {
       mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
         width: (cutout.width || 100) * scale,
@@ -593,14 +638,21 @@ const JobWork3DConfigurator = () => {
     
     let borderPoints = [];
     
-    if (['SH', 'HX', 'HR'].includes(cutout.type)) {
+    // Circular and polygon shapes - use circular border
+    if (['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(cutout.type)) {
       const radius = bounds.halfWidth * scale;
-      const segments = cutout.type === 'HX' ? 6 : 32;
+      let segments = 32;
+      if (cutout.type === 'HX') segments = 6;
+      else if (cutout.type === 'PT') segments = 5;
+      else if (cutout.type === 'OC') segments = 8;
+      else if (cutout.type === 'ST') segments = 10;
+      
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
         borderPoints.push(new BABYLON.Vector3(posX + Math.cos(angle) * radius, posY + Math.sin(angle) * radius, 12));
       }
     } else {
+      // Rectangular shapes (including oval, diamond, rectangle, triangle)
       const halfW = bounds.halfWidth * scale;
       const halfH = bounds.halfHeight * scale;
       borderPoints = [
@@ -1004,10 +1056,25 @@ const JobWork3DConfigurator = () => {
 
   // Get cutout bounds
   const getCutoutBounds = (cutout) => {
-    if (['SH', 'HX', 'HR'].includes(cutout.type)) {
-      const r = (cutout.diameter || 50) / 2;
+    // Circular/polygonal shapes with diameter
+    if (['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(cutout.type)) {
+      const r = (cutout.diameter || 60) / 2;
       return { halfWidth: r, halfHeight: r };
     }
+    // Oval shape with width and height
+    if (cutout.type === 'OV') {
+      return { 
+        halfWidth: (cutout.width || 100) / 2, 
+        halfHeight: (cutout.height || 60) / 2 
+      };
+    }
+    // Diamond shape (square rotated 45 degrees)
+    if (cutout.type === 'DM') {
+      const size = (cutout.width || 70) / 2;
+      const diagonal = size * Math.sqrt(2);
+      return { halfWidth: diagonal, halfHeight: diagonal };
+    }
+    // Default for rectangle, triangle, etc.
     return { halfWidth: (cutout.width || 100) / 2, halfHeight: (cutout.height || 80) / 2 };
   };
 
@@ -1158,7 +1225,7 @@ const JobWork3DConfigurator = () => {
         cutouts: item.cutouts.map(c => {
           if (c.id !== cutoutId) return c;
           
-          const isCircular = ['SH', 'HX', 'HR'].includes(c.type);
+          const isCircular = ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(c.type);
           
           if (isCircular) {
             const delta = (Math.abs(mmDeltaX) > Math.abs(mmDeltaY) ? mmDeltaX : mmDeltaY) * 
@@ -1616,16 +1683,31 @@ const JobWork3DConfigurator = () => {
                   <div className="space-y-2 mb-2">
                     <p className="text-[10px] font-medium text-gray-600 uppercase">Dimensions (mm)</p>
                     
-                    {['SH', 'HX', 'HR'].includes(selectedCutout.type) ? (
+                    {['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(selectedCutout.type) ? (
                       <div className="flex items-center gap-2">
                         <label className="text-gray-500 w-12">Ø</label>
                         <input
                           type="number"
-                          value={Math.round(selectedCutout.diameter || 50)}
+                          value={Math.round(selectedCutout.diameter || 60)}
                           onChange={(e) => updateCutoutDimension(selectedCutout.id, 'diameter', e.target.value)}
                           className="flex-1 h-7 px-2 rounded border text-xs text-center"
                           min="20" max="400"
                           data-testid="cutout-diameter-input"
+                        />
+                        <span className="text-gray-400 text-[10px]">mm</span>
+                      </div>
+                    ) : selectedCutout.type === 'DM' ? (
+                      <div className="flex items-center gap-2">
+                        <label className="text-gray-500 w-12">Size</label>
+                        <input
+                          type="number"
+                          value={Math.round(selectedCutout.width || 70)}
+                          onChange={(e) => {
+                            updateCutoutDimension(selectedCutout.id, 'width', e.target.value);
+                            updateCutoutDimension(selectedCutout.id, 'height', e.target.value);
+                          }}
+                          className="flex-1 h-7 px-2 rounded border text-xs text-center"
+                          min="20" max="400"
                         />
                         <span className="text-gray-400 text-[10px]">mm</span>
                       </div>
@@ -1765,7 +1847,9 @@ const JobWork3DConfigurator = () => {
                     >
                       <span>{CUTOUT_SHAPES.find(s => s.id === c.type)?.name} #{idx + 1}</span>
                       <span className="text-gray-500">
-                        {['SH', 'HX', 'HR'].includes(c.type) ? `Ø${Math.round(c.diameter)}` : `${Math.round(c.width)}×${Math.round(c.height)}`}
+                        {['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(c.type) ? `Ø${Math.round(c.diameter)}` : 
+                         c.type === 'DM' ? `${Math.round(c.width)}×${Math.round(c.width)}` :
+                         `${Math.round(c.width)}×${Math.round(c.height)}`}
                       </span>
                     </div>
                   ))}
@@ -2090,7 +2174,9 @@ const JobWork3DConfigurator = () => {
                               <div key={c.id} className="flex justify-between text-[10px] bg-gray-50 rounded p-1">
                                 <span>{CUTOUT_SHAPES.find(s => s.id === c.type)?.name} #{idx + 1}</span>
                                 <span className="text-gray-600">
-                                  {['SH', 'HX', 'HR'].includes(c.type) ? `Ø${Math.round(c.diameter)}mm` : `${Math.round(c.width)}×${Math.round(c.height)}mm`}
+                                  {['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(c.type) ? `Ø${Math.round(c.diameter)}mm` : 
+                                   c.type === 'DM' ? `${Math.round(c.width)}×${Math.round(c.width)}mm` :
+                                   `${Math.round(c.width)}×${Math.round(c.height)}mm`}
                                 </span>
                               </div>
                             ))}

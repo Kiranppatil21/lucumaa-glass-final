@@ -44,27 +44,52 @@ const OrderManagement = () => {
   });
   const [dispatchLoading, setDispatchLoading] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const ordersPerPage = 20;
 
   useEffect(() => {
-    fetchOrders();
-  }, [statusFilter]);
+    const handle = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
 
-  const fetchOrders = async () => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, debouncedSearch]);
+
+  useEffect(() => {
+    fetchOrders(currentPage);
+  }, [statusFilter, debouncedSearch, currentPage]);
+
+  const fetchOrders = async (page = currentPage) => {
     try {
       setLoading(true);
-      // Use direct axios call since admin/orders is not under /erp prefix
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/orders`, {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: ordersPerPage.toString(),
+      });
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (debouncedSearch) params.append('search', debouncedSearch);
+
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/orders?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      let filteredOrders = Array.isArray(data) ? data : [];
-      
-      if (statusFilter !== 'all') {
-        filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
+
+      if (Array.isArray(data)) {
+        setOrders(data);
+        setTotalOrders(data.length);
+        setTotalPages(Math.max(1, Math.ceil(data.length / ordersPerPage)));
+        setCurrentPage(page);
+      } else {
+        setOrders(data.orders || []);
+        setTotalOrders(data.total ?? (data.orders ? data.orders.length : 0));
+        setTotalPages(data.total_pages || 1);
+        setCurrentPage(data.page || page);
       }
-      
-      setOrders(filteredOrders);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       toast.error('Failed to load orders');
@@ -455,16 +480,15 @@ const OrderManagement = () => {
     return <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">⏳ Payment Pending</span>;
   };
 
-  const filteredOrders = orders.filter(order => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      order.order_number?.toLowerCase().includes(search) ||
-      order.customer_name?.toLowerCase().includes(search) ||
-      order.company_name?.toLowerCase().includes(search) ||
-      order.product_name?.toLowerCase().includes(search)
-    );
+  // Sort by latest first (server already paginates results)
+  const paginatedOrders = [...orders].sort((a, b) => {
+    const dateA = new Date(a.created_at || 0);
+    const dateB = new Date(b.created_at || 0);
+    return dateB - dateA;
   });
+
+  const paginationStart = totalOrders === 0 ? 0 : (currentPage - 1) * ordersPerPage + 1;
+  const paginationEnd = totalOrders === 0 ? 0 : Math.min(currentPage * ordersPerPage, totalOrders);
 
   const vehicleTypes = ['Truck', 'Tempo', 'Pickup', 'Auto', 'Bike', 'Other'];
 
@@ -604,7 +628,7 @@ const OrderManagement = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map((order) => (
+                    {paginatedOrders.map((order) => (
                       <tr key={order.id} className="border-b hover:bg-slate-50">
                         <td className="p-4">
                           <span className="font-mono font-bold text-teal-600">#{order.order_number || order.id?.slice(0, 8)}</span>
@@ -675,6 +699,46 @@ const OrderManagement = () => {
                   </tbody>
                 </table>
               </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t">
+                  <p className="text-sm text-slate-600">
+                    Showing {paginationStart} to {paginationEnd} of {totalOrders} orders
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {[...Array(totalPages)].map((_, i) => (
+                        <Button
+                          key={i + 1}
+                          variant={currentPage === i + 1 ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(i + 1)}
+                          className="w-8"
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>

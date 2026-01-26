@@ -34,6 +34,10 @@ const CustomerPortalEnhanced = () => {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [shareModalOrder, setShareModalOrder] = useState(null);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 10;
+  
   // Profile Edit State
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -599,7 +603,10 @@ const CustomerPortalEnhanced = () => {
                 </CardContent>
               </Card>
             ) : (
-              allOrders.map((order, index) => {
+              <>
+                {allOrders
+                  .slice((currentPage - 1) * ordersPerPage, currentPage * ordersPerPage)
+                  .map((order, index) => {
                 const isJobWork = order.order_type === 'job_work';
                 const statusFlow = isJobWork ? jobWorkStatusFlow : regularStatusFlow;
                 const currentStatusIdx = getStatusIndex(order);
@@ -841,7 +848,33 @@ const CustomerPortalEnhanced = () => {
                     </CardContent>
                   </Card>
                 );
-              })
+              })}
+              
+              {/* Pagination Controls */}
+              {allOrders.length > ordersPerPage && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-slate-600">
+                    Page {currentPage} of {Math.ceil(allOrders.length / ordersPerPage)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(allOrders.length / ordersPerPage), p + 1))}
+                    disabled={currentPage === Math.ceil(allOrders.length / ordersPerPage)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </div>
         )}
