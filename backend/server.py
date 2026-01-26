@@ -2959,7 +2959,11 @@ async def startup_tasks():
     await seed_initial_data()
 
 async def seed_initial_data():
-    product_count = await db.products.count_documents({})
+    try:
+        product_count = await db.products.count_documents({})
+    except Exception as e:
+        logger.warning(f"Skipping seeding - MongoDB connection: {e}")
+        return
     if product_count == 0:
         products = [
             Product(
