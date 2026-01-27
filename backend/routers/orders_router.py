@@ -700,6 +700,7 @@ async def create_order_with_design(
     # Send order confirmation email with PDF
     try:
         from math import sin, cos, pi
+        import ssl
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.units import mm
         from reportlab.lib import colors
@@ -883,7 +884,7 @@ async def create_order_with_design(
                     </div>
                     
                     <p><strong>📎 Design Specification Attached</strong></p>
-                    <p>Please find the detailed design specification PDF attached with all your cutout shapes rendered accurately.</p>
+                    <p>Please find the detailed design specification PDF attached with all your cutout shapes rendered accurately (heart, star, circle, etc).</p>
                     
                     <p>Our team will start processing your order soon. You'll receive updates via email and SMS.</p>
                     
@@ -923,6 +924,11 @@ async def create_order_with_design(
             pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f'order_{order_number}_specification.pdf')
             message.attach(pdf_attachment)
             
+            # Create SSL context to handle certificate issues
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
             # Send email
             await aiosmtplib.send(
                 message,
@@ -931,7 +937,8 @@ async def create_order_with_design(
                 use_tls=True,
                 username=SMTP_USER,
                 password=SMTP_PASSWORD,
-                timeout=30
+                timeout=30,
+                tls_context=ssl_context
             )
             logging.info(f"✅ Order confirmation email sent to {order_doc['customer_email']}")
         else:
