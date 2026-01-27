@@ -55,7 +55,6 @@ SENDER_NAME = os.environ.get('SENDER_NAME', 'Lucumaa Glass')
 
 twilio_client = TwilioClient(os.environ.get('TWILIO_ACCOUNT_SID', ''), os.environ.get('TWILIO_AUTH_TOKEN', ''))
 
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
 TWILIO_PHONE = os.environ.get('TWILIO_PHONE_NUMBER', '')
 TWILIO_WHATSAPP = os.environ.get('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
 
