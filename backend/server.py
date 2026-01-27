@@ -26,7 +26,7 @@ from twilio.rest import Client as TwilioClient
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://127.0.0.1:27017')
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'glass_erp')]
 
@@ -2442,8 +2442,24 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
             
             normalized_cutouts = []
             for idx, raw in enumerate(cutouts, 1):
+                # Map short shape codes (used by frontend) to full shape names for PDF rendering
                 shape_raw = raw.get("shape") or raw.get("type") or "rectangle"
-                shape = str(shape_raw).lower()
+                shape_key = str(shape_raw).strip().lower()
+                shape_map = {
+                    "sh": "circle", "hole": "circle", "circle": "circle",
+                    "r": "rectangle", "rect": "rectangle", "rectangle": "rectangle",
+                    "t": "triangle", "triangle": "triangle",
+                    "hx": "hexagon", "hexagon": "hexagon",
+                    "hr": "heart", "heart": "heart",
+                    "st": "star", "star": "star",
+                    "pt": "pentagon", "pentagon": "pentagon",
+                    "ov": "oval", "oval": "oval",
+                    "dm": "diamond", "diamond": "diamond",
+                    "oc": "octagon", "octagon": "octagon",
+                    "cn": "rectangle",  # corner notch treated as rectangle for PDF
+                    "pg": "polygon",
+                }
+                shape = shape_map.get(shape_key, "rectangle")
                 diameter_mm = as_float(raw.get("diameter"), 0.0)
                 radius_mm = as_float(raw.get("radius"), 0.0)
                 width_mm = as_float(raw.get("width"), 0.0)
@@ -2637,7 +2653,7 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
 @api_router.get("/admin/orders")
 async def get_all_orders(
     page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
     status: Optional[str] = None,
     search: Optional[str] = None,
     current_user: dict = Depends(get_current_user)

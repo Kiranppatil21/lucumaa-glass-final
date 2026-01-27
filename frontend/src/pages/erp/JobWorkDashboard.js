@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { 
   Hammer, Package, Clock, CheckCircle, Truck, AlertTriangle,
   Search, Filter, RefreshCw, Eye, ChevronDown, X, FileText,
-  AlertCircle, Factory, ShieldCheck, Loader2, Share2, Download
+  AlertCircle, Factory, ShieldCheck, Loader2, Share2, Download, Image
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { erpApi } from '../../utils/erpApi';
@@ -23,7 +23,7 @@ const JobWorkDashboard = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const ordersPerPage = 15;
+  const ordersPerPage = 10;
 
   useEffect(() => {
     fetchData();
@@ -134,6 +134,47 @@ const JobWorkDashboard = () => {
       toast.success('Job work data downloaded!');
     } catch (error) {
       toast.error('Failed to download job work data');
+    }
+  };
+
+  const handleDownloadDesignPDF = async (order) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      // Check if order has design data
+      if (!order.cutouts && !order.design_data) {
+        toast.error('No design data available for this order');
+        return;
+      }
+
+      const response = await fetch(`/api/erp/job-work/orders/${order.id}/design-pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `design_${order.job_work_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      toast.success('Design PDF downloaded!');
+    } catch (error) {
+      toast.error('Failed to download design PDF');
+      console.error('Design PDF download error:', error);
     }
   };
 
@@ -324,6 +365,17 @@ const JobWorkDashboard = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
+                            {(order.cutouts || order.design_data) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadDesignPDF(order)}
+                                className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                title="Download Design PDF"
+                              >
+                                <Image className="w-4 h-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -583,6 +635,15 @@ const JobWorkDashboard = () => {
                 >
                   <Download className="w-4 h-4 mr-2" /> Download Job Work Data
                 </Button>
+                {(selectedOrder.cutouts || selectedOrder.design_data) && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleDownloadDesignPDF(selectedOrder)}
+                    className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                  >
+                    <Image className="w-4 h-4 mr-2" /> Download Design PDF
+                  </Button>
+                )}
                 <Button onClick={() => setSelectedOrder(null)} className="flex-1">
                   Close
                 </Button>

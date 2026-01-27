@@ -289,6 +289,8 @@ const GlassConfigurator3D = () => {
   const dragTypeRef = useRef(null); // 'move', 'resize', 'rotate'
   const dragDataRef = useRef(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
+  const dragStartPosRef = useRef(null);
+  const pendingDragRef = useRef(false);
   
   // State
   const [glassItems, setGlassItems] = useState([createDefaultGlassItem(1)]);
@@ -2346,24 +2348,24 @@ const GlassConfigurator3D = () => {
 
     // Handle picked
     if (pick.hit && pick.pickedMesh?.metadata?.handleType) {
-      isDraggingRef.current = true;
+      pendingDragRef.current = true;
+      dragStartPosRef.current = { x: scene.pointerX, y: scene.pointerY };
       dragTypeRef.current = pick.pickedMesh.metadata.handleType;
       dragDataRef.current = {
         cutoutId: pick.pickedMesh.metadata.cutoutId,
         handlePos: pick.pickedMesh.metadata.position
       };
-      if (cameraRef.current) cameraRef.current.detachControl();
       return;
     }
 
     // Cutout picked
     if (pick.hit && pick.pickedMesh?.metadata?.cutoutId) {
-      isDraggingRef.current = true;
+      pendingDragRef.current = true;
+      dragStartPosRef.current = { x: scene.pointerX, y: scene.pointerY };
       dragTypeRef.current = 'move';
       dragDataRef.current = { cutoutId: pick.pickedMesh.metadata.cutoutId };
       setSelectedCutoutId(pick.pickedMesh.metadata.cutoutId);
       selectedCutoutIdRef.current = pick.pickedMesh.metadata.cutoutId;
-      if (cameraRef.current) cameraRef.current.detachControl();
       return;
     }
 
@@ -2373,6 +2375,20 @@ const GlassConfigurator3D = () => {
   };
 
   const handlePointerMove = (scene) => {
+    // Check if we should activate drag (threshold check)
+    if (pendingDragRef.current && dragStartPosRef.current && !isDraggingRef.current) {
+      const dx = scene.pointerX - dragStartPosRef.current.x;
+      const dy = scene.pointerY - dragStartPosRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Activate drag only if moved >5px
+      if (distance > 5) {
+        isDraggingRef.current = true;
+        pendingDragRef.current = false;
+        if (cameraRef.current) cameraRef.current.detachControl();
+      }
+    }
+    
     if (!isDraggingRef.current || !dragDataRef.current) return;
 
     const deltaX = scene.pointerX - lastPointerRef.current.x;
@@ -2391,13 +2407,16 @@ const GlassConfigurator3D = () => {
   const handlePointerUp = () => {
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
-      dragTypeRef.current = null;
-      dragDataRef.current = null;
       if (cameraRef.current && canvasRef.current) {
         cameraRef.current.attachControl(canvasRef.current, true);
       }
       // Price will be calculated via debounced effect
     }
+    // Clear pending drag and drag data
+    pendingDragRef.current = false;
+    dragTypeRef.current = null;
+    dragDataRef.current = null;
+    dragStartPosRef.current = null;
   };
 
   // Smooth cutout movement - update state directly for reliability

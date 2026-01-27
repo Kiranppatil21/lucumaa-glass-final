@@ -153,7 +153,7 @@ async def get_vendors(
     is_active: bool = True,
     search: str = None,
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     current_user: dict = Depends(get_erp_user)
 ):
     """Get all vendors with pagination"""

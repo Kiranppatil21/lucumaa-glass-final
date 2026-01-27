@@ -37,7 +37,7 @@ const LedgerManagement = () => {
   const [vendorPage, setVendorPage] = useState(1);
   const [customerTotalPages, setCustomerTotalPages] = useState(1);
   const [vendorTotalPages, setVendorTotalPages] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10;
 
   const getAuthHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('token')}`

@@ -75,7 +75,7 @@ const CustomerManagement = () => {
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { page, limit: 20 };
+      const params = { page, limit: 10 };
       if (search) params.search = search;
       if (filterType) params.customer_type = filterType;
       if (filterCategory) params.category = filterCategory;

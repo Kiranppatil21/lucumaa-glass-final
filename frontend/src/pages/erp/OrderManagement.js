@@ -48,7 +48,7 @@ const OrderManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const ordersPerPage = 20;
+  const ordersPerPage = 10;
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
@@ -1527,14 +1527,27 @@ const OrderManagement = () => {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {designData.cutouts.map((cutout, idx) => (
                         <div key={idx} className="bg-white rounded p-3 text-sm">
-                          <p className="font-medium text-orange-700">{cutout.shape || 'Rectangle'}</p>
-                          <p className="text-slate-600">Position: ({cutout.x?.toFixed(0)}, {cutout.y?.toFixed(0)})</p>
-                          <p className="text-slate-600">
-                            {cutout.shape === 'circle' 
-                              ? `Radius: ${cutout.radius?.toFixed(0)} mm`
-                              : `${cutout.width?.toFixed(0)} × ${cutout.height?.toFixed(0)} mm`
-                            }
-                          </p>
+                          {(() => {
+                            const shapeMap = {
+                              SH: 'Circle', R: 'Rectangle', T: 'Triangle', HX: 'Hexagon', HR: 'Heart',
+                              ST: 'Star', PT: 'Pentagon', OV: 'Oval', DM: 'Diamond', OC: 'Octagon',
+                              CN: 'Corner Notch', PG: 'Polygon'
+                            };
+                            const shapeLabel = cutout.shape 
+                              || shapeMap[cutout.type?.toUpperCase()] 
+                              || 'Rectangle';
+                            const diameter = cutout.diameter ?? (cutout.radius ? cutout.radius * 2 : null);
+                            const sizeLabel = diameter
+                              ? `Ø ${Math.round(diameter)} mm`
+                              : `${Math.round(cutout.width || 0)} × ${Math.round(cutout.height || cutout.width || 0)} mm`;
+                            return (
+                              <>
+                                <p className="font-medium text-orange-700">{shapeLabel}</p>
+                                <p className="text-slate-600">Position: ({cutout.x?.toFixed(0)}, {cutout.y?.toFixed(0)})</p>
+                                <p className="text-slate-600">{sizeLabel}</p>
+                              </>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>

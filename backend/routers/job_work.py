@@ -5,6 +5,7 @@ Job Work Management System
 - Disclaimer: Company not responsible for breakage in furnace
 """
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -17,6 +18,8 @@ import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import asyncio
+import io
+import ssl
 
 from routers.base import get_db, get_erp_user
 from routers.sms import send_whatsapp
@@ -184,6 +187,8 @@ class JobWorkItem(BaseModel):
     height_inch: float
     quantity: int
     notes: Optional[str] = ""
+    cutouts: Optional[List[dict]] = []  # Array of cutout data (type, dimensions, position)
+    design_data: Optional[dict] = None  # Complete design configuration
 
 class JobWorkCreate(BaseModel):
     customer_name: str
@@ -344,6 +349,85 @@ async def generate_job_work_number():
     
     return f"{prefix}{new_num:04d}"
 
+
+def generate_job_work_pdf(order: dict) -> bytes:
+    """Generate a concise job work PDF with items and summary."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.units import mm
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20 * mm, leftMargin=20 * mm, topMargin=20 * mm, bottomMargin=20 * mm)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'JWTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#7c3aed'), alignment=1, spaceAfter=8 * mm
+    )
+
+    elements = [Paragraph("Job Work Specification", title_style), Spacer(1, 4 * mm)]
+
+    summary_rows = [
+        ["Job Work Number", order.get('job_work_number', '')],
+        ["Customer", order.get('customer_name', '')],
+        ["Phone", order.get('phone', '')],
+        ["Email", order.get('email', '')],
+        ["Pieces", str(order.get('summary', {}).get('total_pieces', 0))],
+        ["Total Sq.Ft", str(order.get('summary', {}).get('total_sqft', 0))],
+        ["Grand Total", f"₹{order.get('summary', {}).get('grand_total', 0):,}"],
+    ]
+
+    summary_table = Table(summary_rows, colWidths=[50 * mm, 110 * mm])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ede9fe')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#5b21b6')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 6 * mm))
+
+    # Items table
+    items = order.get('item_details', [])
+    if items:
+        table_data = [[
+            "Thickness (mm)", "Width (inch)", "Height (inch)", "Qty", "Sq.Ft/pc", "Labour ₹"
+        ]]
+        for item in items:
+            table_data.append([
+                item.get('thickness_mm', ''),
+                item.get('width_inch', ''),
+                item.get('height_inch', ''),
+                item.get('quantity', ''),
+                item.get('sqft_per_piece', ''),
+                item.get('labour_cost', ''),
+            ])
+        items_table = Table(table_data, colWidths=[30 * mm, 25 * mm, 25 * mm, 20 * mm, 30 * mm, 30 * mm])
+        items_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f5f3ff')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#4c1d95')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ]))
+        elements.append(Paragraph("Items", styles['Heading3']))
+        elements.append(items_table)
+        elements.append(Spacer(1, 4 * mm))
+
+    disclaimer = Paragraph(
+        "<b>Disclaimer:</b> Company not responsible for breakage during toughening. No compensation or refund for broken glass.",
+        styles['Normal']
+    )
+    elements.append(disclaimer)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.read()
+
 async def send_job_work_email(order: dict):
     """Send email confirmation for job work order"""
     try:
@@ -443,31 +527,25 @@ async def send_job_work_email(order: dict):
         html_part = MIMEText(email_html, 'html')
         message.attach(html_part)
         
-        # Generate and attach PDF invoice
+        # Generate and attach PDF inline (no external service dependency)
         try:
             from email.mime.application import MIMEApplication
-            import io
-            import httpx
-            
-            # Call PDF generation endpoint
-            async with httpx.AsyncClient() as client:
-                pdf_response = await client.get(
-                    f"http://localhost:5001/api/pdf/job-work-invoice/{order['id']}",
-                    timeout=30.0
-                )
-                if pdf_response.status_code == 200:
-                    pdf_attachment = MIMEApplication(pdf_response.content, _subtype='pdf')
-                    pdf_attachment.add_header(
-                        'Content-Disposition', 
-                        'attachment', 
-                        filename=f'job_work_{order["job_work_number"]}.pdf'
-                    )
-                    message.attach(pdf_attachment)
-                    logging.info("✅ PDF attached to job work email")
-                else:
-                    logging.warning(f"⚠️ Failed to generate PDF: {pdf_response.status_code}")
+            pdf_bytes = generate_job_work_pdf(order)
+            pdf_attachment = MIMEApplication(pdf_bytes, _subtype='pdf')
+            pdf_attachment.add_header(
+                'Content-Disposition', 
+                'attachment', 
+                filename=f'job_work_{order["job_work_number"]}.pdf'
+            )
+            message.attach(pdf_attachment)
+            logging.info("✅ PDF attached to job work email")
         except Exception as pdf_error:
             logging.warning(f"⚠️ Could not attach PDF to email: {str(pdf_error)}")
+        
+        # Create SSL context to tolerate host cert issues (Hostinger)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
         
         await aiosmtplib.send(
             message,
@@ -476,7 +554,8 @@ async def send_job_work_email(order: dict):
             use_tls=True,
             username=SMTP_USER,
             password=SMTP_PASSWORD,
-            timeout=30
+            timeout=30,
+            tls_context=ssl_context
         )
         logging.info(f"✅ Job work email sent successfully to {order['email']}")
     except Exception as e:
@@ -597,7 +676,7 @@ async def create_job_work_order(
 @job_work_router.get("/orders")
 async def get_job_work_orders(
     page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
     status: Optional[str] = None,
     search: Optional[str] = None,
     current_user: dict = Depends(get_erp_user)
@@ -655,6 +734,122 @@ async def get_job_work_order(order_id: str, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=403, detail="Access denied")
     
     return order
+
+
+@job_work_router.get("/orders/{order_id}/pdf")
+async def download_job_work_pdf(order_id: str, current_user: dict = Depends(get_erp_user)):
+    """Download job work PDF (admin/super_admin)."""
+    db = get_db()
+    order = await db.job_work_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Job work order not found")
+
+    pdf_bytes = generate_job_work_pdf(order)
+    filename = f"job_work_{order.get('job_work_number', order_id)}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@job_work_router.get("/orders/{order_id}/design-pdf")
+async def download_job_work_design_pdf(order_id: str, current_user: dict = Depends(get_erp_user)):
+    """Download job work design PDF with cutouts/3D design (admin/super_admin)."""
+    from routers.glass_configurator import export_pdf, PDFExportRequest, GlassExportSpec, CutoutExportSpec
+    
+    db = get_db()
+    order = await db.job_work_orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Job work order not found")
+    
+    # Check if order has design data - look in first item or at order level
+    items = order.get('items', [])
+    if not items:
+        raise HTTPException(status_code=404, detail="No items found in order")
+    
+    first_item = items[0]
+    design_data = first_item.get('design_data') or order.get('design_data')
+    cutouts_data = first_item.get('cutouts', []) or order.get('cutouts', [])
+    
+    if not cutouts_data or len(cutouts_data) == 0:
+        raise HTTPException(status_code=404, detail="No design data found for this job work order. Design PDF is only available for orders created from the 3D configurator with cutouts.")
+    
+    # Build glass config from job work data
+    width_mm = design_data.get('width_mm') if design_data else round(float(first_item.get('width_inch', 0)) * 25.4)
+    height_mm = design_data.get('height_mm') if design_data else round(float(first_item.get('height_inch', 0)) * 25.4)
+    thickness_mm = design_data.get('thickness_mm') if design_data else first_item.get('thickness_mm', 8)
+    
+    glass_config = GlassExportSpec(
+        width_mm=width_mm,
+        height_mm=height_mm,
+        thickness_mm=thickness_mm,
+        glass_type=f"Job Work - {design_data.get('job_work_type', 'Toughening') if design_data else 'Toughening'}",
+        color_name="Clear",
+        application="Job Work Order"
+    )
+    
+    # Map cutouts to export format
+    cutout_shapes = ['SH', 'R', 'T', 'HX', 'HR', 'ST', 'PT', 'OV', 'DM', 'OC']
+    shape_names = {
+        'SH': 'Hole', 'R': 'Rectangle', 'T': 'Triangle', 'HX': 'Hexagon',
+        'HR': 'Heart', 'ST': 'Star', 'PT': 'Pentagon', 'OV': 'Oval',
+        'DM': 'Diamond', 'OC': 'Octagon'
+    }
+    shape_labels = {
+        'SH': 'H', 'R': 'R', 'T': 'T', 'HX': 'HX',
+        'HR': 'HR', 'ST': 'ST', 'PT': 'PT', 'OV': 'OV',
+        'DM': 'DM', 'OC': 'OC'
+    }
+    
+    cutouts_export = []
+    for idx, cutout in enumerate(cutouts_data, 1):
+        cutout_type = cutout.get('type', 'SH')
+        label = shape_labels.get(cutout_type, 'C')
+        
+        # Calculate bounds
+        diameter = cutout.get('diameter', 50)
+        width = cutout.get('width', 100)
+        height = cutout.get('height', 80)
+        x = cutout.get('x', width_mm / 2)
+        y = cutout.get('y', height_mm / 2)
+        rotation = cutout.get('rotation', 0)
+        
+        # Calculate edge distances
+        if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC']:
+            half_size = diameter / 2
+            half_height = half_size
+        else:
+            half_size = width / 2
+            half_height = height / 2
+        
+        left_edge = max(0, round(x - half_size))
+        right_edge = max(0, round(width_mm - x - half_size))
+        top_edge = max(0, round(height_mm - y - half_height))
+        bottom_edge = max(0, round(y - half_height))
+        
+        cutouts_export.append(CutoutExportSpec(
+            number=f"{label}{idx}",
+            type=shape_names.get(cutout_type, 'Unknown'),
+            diameter=diameter if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+            width=width if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+            height=height if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+            x=x,
+            y=y,
+            rotation=rotation,
+            left_edge=left_edge,
+            right_edge=right_edge,
+            top_edge=top_edge,
+            bottom_edge=bottom_edge
+        ))
+    
+    pdf_request = PDFExportRequest(
+        glass_config=glass_config,
+        cutouts=cutouts_export,
+        quantity=order.get('summary', {}).get('total_pieces', 1)
+    )
+    
+    # Generate PDF using existing glass configurator export
+    return await export_pdf(pdf_request, current_user)
 
 # ============ UPDATE STATUS ============
 

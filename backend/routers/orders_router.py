@@ -752,11 +752,15 @@ async def create_order_with_design(
         if data.glass_config.cutouts:
             glass_w = float(data.glass_config.width_mm)
             glass_h = float(data.glass_config.height_mm)
-            scale = 0.5
-            margin = 10*mm
-            drawing_width = min(glass_w * scale + 2*margin, 170*mm)
-            drawing_height = min(glass_h * scale + 2*margin, 120*mm)
-            
+
+            # Scale drawing to fit the page while preserving proportions
+            max_width = 170 * mm
+            max_height = 120 * mm
+            margin = 10 * mm
+            scale = min((max_width - 2 * margin) / glass_w, (max_height - 2 * margin) / glass_h, 1)
+
+            drawing_width = glass_w * scale + 2 * margin
+            drawing_height = glass_h * scale + 2 * margin
             drawing = Drawing(drawing_width, drawing_height)
             offset_x = margin
             offset_y = margin
@@ -764,9 +768,10 @@ async def create_order_with_design(
             # Draw glass rectangle
             drawing.add(Rect(offset_x, offset_y, glass_w * scale, glass_h * scale, fillColor=colors.HexColor('#E8F4F8'), strokeColor=colors.HexColor('#3B82F6'), strokeWidth=2))
             
-            # Draw cutouts
+            # Draw cutouts with better shape/type fallback
             cutout_colors = {
                 'circle': colors.HexColor('#3B82F6'),
+                'hole': colors.HexColor('#3B82F6'),
                 'rectangle': colors.HexColor('#22C55E'),
                 'square': colors.HexColor('#F59E0B'),
                 'triangle': colors.HexColor('#F97316'),
@@ -780,16 +785,21 @@ async def create_order_with_design(
             }
             
             for cutout in data.glass_config.cutouts:
-                shape = str(cutout.get('type', 'Hole')).lower()
+                shape = (cutout.get('shape') or cutout.get('type') or 'hole').lower()
                 cx = offset_x + float(cutout.get('x', 0)) * scale
                 cy = offset_y + float(cutout.get('y', 0)) * scale
                 cutout_color = cutout_colors.get(shape, colors.blue)
+
+                # Fallback sizing
+                diameter = float(cutout.get('diameter') or cutout.get('width') or cutout.get('height') or 20)
+                width_val = float(cutout.get('width') or cutout.get('diameter') or 20)
+                height_val = float(cutout.get('height') or cutout.get('diameter') or 20)
                 
-                if shape == 'hole' or shape == 'circle':
-                    radius = (float(cutout.get('diameter', 20)) / 2) * scale
+                if shape in ['hole', 'circle']:
+                    radius = (diameter / 2) * scale
                     drawing.add(Circle(cx, cy, radius, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif shape == 'star':
-                    size = (float(cutout.get('diameter', 20)) / 2) * scale
+                    size = (diameter / 2) * scale
                     outer_r = size
                     inner_r = size * 0.38
                     points = []
@@ -798,8 +808,17 @@ async def create_order_with_design(
                         r = outer_r if i % 2 == 0 else inner_r
                         points.extend([cx + r * cos(angle), cy + r * sin(angle)])
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == 'diamond':
+                    size = max(width_val, height_val) * scale / 2
+                    points = [
+                        cx, cy + size,
+                        cx + size, cy,
+                        cx, cy - size,
+                        cx - size, cy
+                    ]
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif shape == 'heart':
-                    size = float(cutout.get('diameter', 20)) * scale
+                    size = diameter * scale
                     path = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
                     scale_factor = size / 40
                     for i in range(101):
@@ -812,10 +831,18 @@ async def create_order_with_design(
                             path.lineTo(cx + x_val, cy + y_val)
                     path.closePath()
                     drawing.add(path)
+                elif shape in ['pentagon', 'hexagon', 'octagon']:
+                    sides = 5 if shape == 'pentagon' else 6 if shape == 'hexagon' else 8
+                    radius = (diameter / 2) * scale
+                    points = []
+                    for i in range(sides):
+                        angle = (i * 2 * pi / sides) - (pi / 2)
+                        points.extend([cx + radius * cos(angle), cy + radius * sin(angle)])
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 else:
-                    # Rectangle/Square
-                    w = float(cutout.get('width', 20)) * scale
-                    h = float(cutout.get('height', 20)) * scale
+                    # Rectangle/Square and other polygonal shapes fallback
+                    w = width_val * scale
+                    h = height_val * scale
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
             
             elements.append(drawing)
@@ -906,15 +933,16 @@ async def create_order_with_design(
         SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
         SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
         SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
-        SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'info@lucumaaglass.in')
-        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+        SENDER_EMAIL = os.environ.get('SENDER_EMAIL', SMTP_USER)
+        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD') or 'Info123@@123'
         SENDER_NAME = os.environ.get('SENDER_NAME', 'Lucumaa Glass')
+        recipient = order_doc.get('customer_email')
         
-        if SMTP_PASSWORD:
+        if SMTP_PASSWORD and recipient:
             message = MIMEMultipart()
             message['Subject'] = f"Order Confirmed - {order_number} | Lucumaa Glass"
             message['From'] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
-            message['To'] = order_doc['customer_email']
+            message['To'] = recipient
             
             html_part = MIMEText(email_html, 'html')
             message.attach(html_part)
@@ -940,9 +968,9 @@ async def create_order_with_design(
                 timeout=30,
                 tls_context=ssl_context
             )
-            logging.info(f"✅ Order confirmation email sent to {order_doc['customer_email']}")
+            logging.info(f"✅ Order confirmation email sent to {recipient}")
         else:
-            logging.warning(f"⚠️ SMTP_PASSWORD not configured")
+            logging.warning(f"⚠️ Cannot send email - SMTP missing or recipient missing (password set: {bool(SMTP_PASSWORD)}, recipient: {bool(recipient)})")
             
     except Exception as e:
         logging.error(f"❌ Error sending order email: {str(e)}")

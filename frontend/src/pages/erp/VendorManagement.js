@@ -34,7 +34,7 @@ const VendorManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalVendors, setTotalVendors] = useState(0);
-  const vendorsPerPage = 20;
+  const vendorsPerPage = 10;
 
   const [newVendor, setNewVendor] = useState({
     name: '',
