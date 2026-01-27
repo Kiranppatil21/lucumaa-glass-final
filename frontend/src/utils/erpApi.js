@@ -341,7 +341,7 @@ export const erpApi = {
     verifyPayment: (id, data) => axios.post(`${API_BASE}/job-work/orders/${id}/verify-payment`, data, { headers: getAuthHeaders() }),
     setCashPreference: (id) => axios.post(`${API_BASE}/job-work/orders/${id}/set-cash-preference`, {}, { headers: getAuthHeaders() }),
     // Admin
-    getOrders: (status) => axios.get(`${API_BASE}/job-work/orders${status ? `?status=${status}` : ''}`, { headers: getAuthHeaders() }),
+    getOrders: (params) => axios.get(`${API_BASE}/job-work/orders`, { params, headers: getAuthHeaders() }),
     getDashboard: () => axios.get(`${API_BASE}/job-work/dashboard`, { headers: getAuthHeaders() }),
     updateStatus: (id, data) => axios.patch(`${API_BASE}/job-work/orders/${id}/status`, data, { headers: getAuthHeaders() }),
     markCashPayment: (id, data) => axios.post(`${API_BASE}/job-work/orders/${id}/cash-payment`, data, { headers: getAuthHeaders() }),

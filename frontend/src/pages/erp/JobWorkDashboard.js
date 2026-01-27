@@ -20,20 +20,44 @@ const JobWorkDashboard = () => {
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [shareModalOrder, setShareModalOrder] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const ordersPerPage = 15;
 
   useEffect(() => {
     fetchData();
-  }, [statusFilter]);
+  }, [statusFilter, currentPage, debouncedSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const params = {
+        page: currentPage,
+        limit: ordersPerPage,
+        status: statusFilter === 'all' ? null : statusFilter,
+        search: debouncedSearch || null
+      };
       const [ordersRes, dashRes] = await Promise.all([
-        erpApi.jobWork.getOrders(statusFilter === 'all' ? null : statusFilter),
+        erpApi.jobWork.getOrders(params),
         erpApi.jobWork.getDashboard()
       ]);
-      setOrders(ordersRes.data || []);
+      
+      if (ordersRes.data.orders) {
+        setOrders(ordersRes.data.orders);
+        setTotalOrders(ordersRes.data.total);
+        setTotalPages(ordersRes.data.total_pages);
+      } else {
+        setOrders(ordersRes.data || []);
+      }
       setStats(dashRes.data);
     } catch (error) {
       toast.error('Failed to load job work data');
@@ -113,31 +137,8 @@ const JobWorkDashboard = () => {
     }
   };
 
-  // Sort by latest first
-  const sortedOrders = [...orders].sort((a, b) => {
-    const dateA = new Date(a.created_at || 0);
-    const dateB = new Date(b.created_at || 0);
-    return dateB - dateA; // Latest first
-  });
-
-  const filteredOrders = sortedOrders.filter(order => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        order.job_work_number?.toLowerCase().includes(query) ||
-        order.customer_name?.toLowerCase().includes(query) ||
-        order.phone?.includes(query)
-      );
-    }
-    return true;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * ordersPerPage,
-    currentPage * ordersPerPage
-  );
+  // Use server-provided orders directly (already sorted and filtered)
+  const paginatedOrders = orders;
 
   if (loading && !stats) {
     return (
@@ -248,10 +249,10 @@ const JobWorkDashboard = () => {
       {/* Orders List */}
       <Card>
         <CardHeader>
-          <CardTitle>Job Work Orders ({filteredOrders.length})</CardTitle>
+          <CardTitle>Job Work Orders ({totalOrders})</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredOrders.length === 0 ? (
+          {orders.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Hammer className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No job work orders found</p>
@@ -359,7 +360,7 @@ const JobWorkDashboard = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 border-t mt-4">
               <p className="text-sm text-slate-600">
-                Showing {(currentPage - 1) * ordersPerPage + 1} to {Math.min(currentPage * ordersPerPage, filteredOrders.length)} of {filteredOrders.length} orders
+                Showing {(currentPage - 1) * ordersPerPage + 1} to {Math.min(currentPage * ordersPerPage, totalOrders)} of {totalOrders} orders
               </p>
               <div className="flex gap-2">
                 <Button
