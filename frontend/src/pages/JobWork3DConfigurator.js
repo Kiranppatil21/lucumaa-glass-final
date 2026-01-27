@@ -483,10 +483,9 @@ const JobWork3DConfigurator = () => {
 
     let mesh;
     if (cutout.type === 'HR') {
-      // Heart shape - proper heart using CreatePolygon with increased depth
+      // Heart shape - flat polygon visible from above
       const size = (cutout.diameter || 60) * scale / 2;
       const heartPoints = [];
-      // Create heart shape points
       for (let i = 0; i <= 100; i++) {
         const t = (i / 100) * Math.PI * 2;
         const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
@@ -495,12 +494,11 @@ const JobWork3DConfigurator = () => {
       }
       mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
         shape: heartPoints,
-        depth: 15,  // Increased depth for better 3D effect
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+        depth: 0.5,
+        sideOrientation: BABYLON.Mesh.FRONTSIDE
       }, scene, earcut);
-      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'ST') {
-      // Star shape - proper 5-pointed star using CreatePolygon with increased depth
+      // Star shape - flat polygon visible from above
       const outerRadius = (cutout.diameter || 70) * scale / 2;
       const innerRadius = outerRadius * 0.38;
       const starPoints = [];
@@ -515,77 +513,71 @@ const JobWork3DConfigurator = () => {
       }
       mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
         shape: starPoints,
-        depth: 15,  // Increased depth for better 3D effect
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+        depth: 0.5,
+        sideOrientation: BABYLON.Mesh.FRONTSIDE
       }, scene, earcut);
-      mesh.rotation.x = -Math.PI / 2;
     } else if (cutout.type === 'PT') {
-      // Pentagon - 5-sided cylinder with increased height
+      // Pentagon - cylinder lying flat
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
         diameter: (cutout.diameter || 60) * scale,
-        height: 15,  // Increased height for better 3D effect
+        height: 0.5,
         tessellation: 5
       }, scene);
-      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'OC') {
-      // Octagon - 8-sided cylinder with increased height
+      // Octagon - cylinder lying flat
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
         diameter: (cutout.diameter || 60) * scale,
-        height: 15,  // Increased height for better 3D effect
+        height: 0.5,
         tessellation: 8
       }, scene);
-      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'OV') {
-      // Oval - scaled cylinder with increased height
+      // Oval - flat ellipse
       const w = (cutout.width || 100) * scale;
       const h = (cutout.height || 60) * scale;
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
         diameter: Math.max(w, h),
-        height: 15,  // Increased height for better 3D effect
+        height: 0.5,
         tessellation: 32
       }, scene);
       mesh.scaling.x = w / Math.max(w, h);
       mesh.scaling.y = h / Math.max(w, h);
-      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'DM') {
-      // Diamond - rotated square box with increased depth
+      // Diamond - flat rotated square
       const w = (cutout.width || 70) * scale;
       const h = (cutout.height || 70) * scale;
       mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
         width: w,
         height: h,
-        depth: 15  // Increased depth for better 3D effect
+        depth: 0.5
       }, scene);
       mesh.rotation.z = Math.PI / 4; // 45 degree rotation
     } else if (['SH', 'HX'].includes(cutout.type)) {
       const tessellation = cutout.type === 'HX' ? 6 : 32;
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
         diameter: (cutout.diameter || 50) * scale,
-        height: 15,  // Increased height for better 3D effect
+        height: 0.5,
         tessellation
       }, scene);
-      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'T') {
-      // Triangle - 3-sided cylinder (reliable) with increased height
+      // Triangle - flat cylinder
       const size = Math.max(cutout.width || 100, cutout.height || 80) * scale;
       mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
         diameter: size,
-        height: 15,  // Increased height for better 3D effect
+        height: 0.5,
         tessellation: 3
       }, scene);
-      mesh.rotation.x = Math.PI / 2;
       mesh.rotation.z = Math.PI / 6; // Rotate to point up
     } else {
       mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
         width: (cutout.width || 100) * scale,
         height: (cutout.height || 80) * scale,
-        depth: 15  // Increased depth for better 3D effect
+        depth: 0.5
       }, scene);
     }
 
     mesh.position.x = posX;
     mesh.position.y = posY;
-    mesh.position.z = 10;  // Adjusted Z position for increased depth
+    mesh.position.z = 5;  // Flat at glass surface
     mesh.rotation.z = rotation;
 
     const cutoutColor = CUTOUT_COLORS[cutout.type] || CUTOUT_COLORS.SH;
