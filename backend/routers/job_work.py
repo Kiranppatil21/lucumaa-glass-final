@@ -596,17 +596,41 @@ async def create_job_work_order(
 
 @job_work_router.get("/orders")
 async def get_job_work_orders(
+    page: int = 1,
+    limit: int = 20,
     status: Optional[str] = None,
+    search: Optional[str] = None,
     current_user: dict = Depends(get_erp_user)
 ):
-    """Get all job work orders (Admin)"""
+    """Get all job work orders (Admin) with pagination"""
     db = get_db()
     query = {}
     if status:
         query["status"] = status
     
-    orders = await db.job_work_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return orders
+    if search:
+        import re
+        search_pattern = re.escape(search.strip())
+        query["$or"] = [
+            {"order_number": {"$regex": search_pattern, "$options": "i"}},
+            {"customer_name": {"$regex": search_pattern, "$options": "i"}},
+            {"customer_phone": {"$regex": search_pattern, "$options": "i"}}
+        ]
+    
+    # Pagination
+    limit = min(limit, 200)  # Max 200 per page
+    skip = (page - 1) * limit
+    
+    total = await db.job_work_orders.count_documents(query)
+    orders = await db.job_work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        "orders": orders,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total + limit - 1) // limit
+    }
 
 @job_work_router.get("/my-orders")
 async def get_my_job_work_orders(current_user: dict = Depends(get_current_user_jw)):

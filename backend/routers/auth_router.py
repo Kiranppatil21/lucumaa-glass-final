@@ -75,13 +75,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     try:
         payload = decode_token(credentials.credentials)
         db = get_db()
-        user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
+        
+        # Try to find user by id, user_id, or _id
+        user = await db.users.find_one(
+            {"$or": [
+                {"id": payload["user_id"]},
+                {"user_id": payload["user_id"]},
+                {"_id": payload["user_id"]}
+            ]}, 
+            {"_id": 0}
+        )
+        
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except Exception:
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
@@ -257,19 +269,28 @@ async def login_user(login_data: UserLogin):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    if not verify_password(login_data.password, user.get("password_hash", "")):
+    # Try multiple password field names for compatibility
+    password_hash = user.get("password_hash") or user.get("hashed_password") or user.get("password")
+    
+    if not password_hash:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    token = create_token(user["id"], user["email"], user["role"], user.get("name", ""))
+    if not verify_password(login_data.password, password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Ensure user has an id field - create one if missing
+    user_id = user.get("id") or user.get("user_id") or user.get("_id")
+    
+    token = create_token(str(user_id), user["email"], user.get("role", "customer"), user.get("name", ""))
     
     return {
         "message": "Login successful",
         "token": token,
         "user": {
-            "id": user["id"],
+            "id": str(user_id),
             "email": user["email"],
             "name": user.get("name"),
-            "role": user["role"]
+            "role": user.get("role", "customer")
         }
     }
 

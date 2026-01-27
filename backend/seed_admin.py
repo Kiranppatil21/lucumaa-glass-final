@@ -40,7 +40,7 @@ async def seed_admin():
         "email": "admin@lucumaaglass.in",
         "name": "Super Admin",
         "phone": "9999999999",
-        "password": password_hash,  # Field name is 'password', not 'password_hash'
+        "password_hash": password_hash,  # Standardized field name
         "role": "super_admin",
         "active": True,
         "created_at": datetime.now(timezone.utc).isoformat()

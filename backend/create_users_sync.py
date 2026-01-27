@@ -21,10 +21,10 @@ def create_user(collection, email: str, password: str, name: str, role: str):
     
     user_data = {
         "email": email,
-        "hashed_password": hashed_password,
+        "password_hash": hashed_password,
         "name": name,
         "role": role,
-        "user_id": str(uuid.uuid4()),
+        "id": str(uuid.uuid4()),
         "is_active": True
     }
     

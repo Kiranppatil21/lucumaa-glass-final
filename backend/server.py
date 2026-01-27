@@ -2545,8 +2545,9 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
                     h = (cutout["height"] or cutout["width"] or cutout["diameter"] or 20) * scale
                     drawing.add(Ellipse(cx, cy, w/2, h/2, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif shape == "star":
-                    outer_r = (cutout["diameter"] or cutout["width"] or 20) / 2 * scale
-                    inner_r = outer_r * 0.38
+                    size = (cutout["diameter"] or cutout["width"] or 20) / 2 * scale
+                    outer_r = size
+                    inner_r = size * 0.38
                     points = []
                     for i in range(10):
                         angle = (i * pi / 5) - (pi / 2)
@@ -2554,8 +2555,9 @@ async def download_glass_config_pdf(config_id: str, current_user: dict = Depends
                         points.extend([cx + r * cos(angle), cy + r * sin(angle)])
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif shape == "heart":
+                    size = (cutout["diameter"] or cutout["width"] or 20) * scale
                     path = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
-                    scale_factor = ((cutout["diameter"] or cutout["width"] or 20) / 40) * scale
+                    scale_factor = size / 40
                     for i in range(101):
                         t = (i / 100) * 2 * pi
                         x_val = 16 * (sin(t) ** 3) * scale_factor

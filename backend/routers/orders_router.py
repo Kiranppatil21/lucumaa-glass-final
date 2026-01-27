@@ -812,12 +812,131 @@ async def create_order_with_design(
         # Send email with PDF attachment (non-blocking)
         async def send_order_email():
             try:
-                from ..routers.glass_configurator import export_pdf
-                # Create a mock request object for export_pdf
-                class MockUser:
-                    pass
-                pdf_response = await export_pdf(pdf_data, MockUser())
-                pdf_buffer = io.BytesIO(pdf_response.body)
+                # Generate PDF directly using glass config data
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib.units import mm
+                from reportlab.lib import colors
+                from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.graphics.shapes import Drawing, Line, Rect, Circle, String, Polygon, Path, Ellipse
+                from math import sin, cos, pi
+                
+                # Get glass config
+                glass_config = await db.glass_configs.find_one({"id": glass_config_id}, {"_id": 0})
+                if not glass_config:
+                    logging.error("Glass config not found for PDF generation")
+                    return
+                
+                pdf_buffer = io.BytesIO()
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+                
+                styles = getSampleStyleSheet()
+                title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, alignment=1, spaceAfter=10*mm, textColor=colors.HexColor('#3B82F6'))
+                
+                elements = []
+                elements.append(Paragraph("Glass Specification Sheet", title_style))
+                elements.append(Spacer(1, 5*mm))
+                
+                # Basic info table
+                info_data = [
+                    ["Order Number", order_number],
+                    ["Customer", order_doc['customer_name']],
+                    ["Dimensions", f"{glass_config['width_mm']:.1f} × {glass_config['height_mm']:.1f} × {glass_config['thickness_mm']:.1f} mm"],
+                    ["Glass Type", glass_config.get('glass_type', 'Standard')],
+                    ["Cutouts", str(len(glass_config.get('cutouts', [])))]
+                ]
+                
+                info_table = Table(info_data, colWidths=[60*mm, 100*mm])
+                info_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                elements.append(info_table)
+                elements.append(Spacer(1, 10*mm))
+                
+                # Add visual diagram if cutouts exist
+                if glass_config.get('cutouts'):
+                    def as_float(val, default=0.0):
+                        try:
+                            return float(val)
+                        except:
+                            return default
+                    
+                    glass_w = as_float(glass_config['width_mm'])
+                    glass_h = as_float(glass_config['height_mm'])
+                    scale = 0.5
+                    margin = 10*mm
+                    drawing_width = min(glass_w * scale + 2*margin, 170*mm)
+                    drawing_height = min(glass_h * scale + 2*margin, 120*mm)
+                    
+                    drawing = Drawing(drawing_width, drawing_height)
+                    offset_x = margin
+                    offset_y = margin
+                    
+                    # Draw glass rectangle
+                    drawing.add(Rect(offset_x, offset_y, glass_w * scale, glass_h * scale, fillColor=colors.HexColor('#E8F4F8'), strokeColor=colors.HexColor('#3B82F6'), strokeWidth=2))
+                    
+                    # Draw cutouts
+                    cutout_colors = {
+                        'circle': colors.HexColor('#3B82F6'), 'rectangle': colors.HexColor('#22C55E'),
+                        'square': colors.HexColor('#F59E0B'), 'triangle': colors.HexColor('#F97316'),
+                        'diamond': colors.HexColor('#6366F1'), 'oval': colors.HexColor('#10B981'),
+                        'pentagon': colors.HexColor('#8B5CF6'), 'hexagon': colors.HexColor('#EC4899'),
+                        'octagon': colors.HexColor('#14B8A6'), 'star': colors.HexColor('#F59E0B'),
+                        'heart': colors.HexColor('#EF4444')
+                    }
+                    
+                    for cutout in glass_config['cutouts']:
+                        shape = str(cutout.get('shape', 'circle')).lower()
+                        cx = offset_x + as_float(cutout.get('x', 0)) * scale
+                        cy = offset_y + as_float(cutout.get('y', 0)) * scale
+                        cutout_color = cutout_colors.get(shape, colors.blue)
+                        
+                        if shape == 'circle':
+                            radius = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            drawing.add(Circle(cx, cy, radius, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'rectangle' or shape == 'square':
+                            w = as_float(cutout.get('width', 20)) * scale
+                            h = as_float(cutout.get('height', w/scale)) * scale
+                            drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'star':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            outer_r = size
+                            inner_r = size * 0.38
+                            points = []
+                            for i in range(10):
+                                angle = (i * pi / 5) - (pi / 2)
+                                r = outer_r if i % 2 == 0 else inner_r
+                                points.extend([cx + r * cos(angle), cy + r * sin(angle)])
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'heart':
+                            size = as_float(cutout.get('diameter', 20)) * scale
+                            path = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
+                            scale_factor = size / 40
+                            for i in range(101):
+                                t = (i / 100) * 2 * pi
+                                x_val = 16 * (sin(t) ** 3) * scale_factor
+                                y_val = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                                if i == 0:
+                                    path.moveTo(cx + x_val, cy + y_val)
+                                else:
+                                    path.lineTo(cx + x_val, cy + y_val)
+                            path.closePath()
+                            drawing.add(path)
+                        else:
+                            w = as_float(cutout.get('width', 20)) * scale
+                            h = as_float(cutout.get('height', 20)) * scale
+                            drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                    
+                    elements.append(drawing)
+                
+                doc.build(elements)
+                pdf_buffer.seek(0)
                 
                 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
                 SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
@@ -825,36 +944,34 @@ async def create_order_with_design(
                 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
                 
                 logging.info(f"📧 Attempting to send order email to {order_doc['customer_email']}")
-                logging.info(f"SMTP Config: {SMTP_HOST}:{SMTP_PORT} | User: {SMTP_USER} | Password: {'SET' if SMTP_PASSWORD else 'NOT SET'}")
                 
                 if not SMTP_PASSWORD:
                     logging.error("❌ SMTP_PASSWORD not configured - cannot send email")
                     return
                 
-                if SMTP_PASSWORD:
-                    message = MIMEMultipart()
-                    message['Subject'] = f"Order Confirmed - {order_number} | Lucumaa Glass"
-                    message['From'] = f"Lucumaa Glass <{SMTP_USER}>"
-                    message['To'] = order_doc['customer_email']
-                    
-                    html_part = MIMEText(email_html, 'html')
-                    message.attach(html_part)
-                    
-                    # Attach PDF
-                    pdf_attachment = MIMEApplication(pdf_buffer.read(), _subtype='pdf')
-                    pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f'order_{order_number}_specification.pdf')
-                    message.attach(pdf_attachment)
-                    
-                    await aiosmtplib.send(
-                        message,
-                        hostname=SMTP_HOST,
-                        port=SMTP_PORT,
-                        use_tls=True,
-                        username=SMTP_USER,
-                        password=SMTP_PASSWORD,
-                        timeout=30
-                    )
-                    logging.info(f"✅ Order confirmation email sent successfully to {order_doc['customer_email']}")
+                message = MIMEMultipart()
+                message['Subject'] = f"Order Confirmed - {order_number} | Lucumaa Glass"
+                message['From'] = f"Lucumaa Glass <{SMTP_USER}>"
+                message['To'] = order_doc['customer_email']
+                
+                html_part = MIMEText(email_html, 'html')
+                message.attach(html_part)
+                
+                # Attach PDF
+                pdf_attachment = MIMEApplication(pdf_buffer.read(), _subtype='pdf')
+                pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f'order_{order_number}_specification.pdf')
+                message.attach(pdf_attachment)
+                
+                await aiosmtplib.send(
+                    message,
+                    hostname=SMTP_HOST,
+                    port=SMTP_PORT,
+                    use_tls=True,
+                    username=SMTP_USER,
+                    password=SMTP_PASSWORD,
+                    timeout=30
+                )
+                logging.info(f"✅ Order confirmation email sent successfully to {order_doc['customer_email']}")
             except Exception as e:
                 logging.error(f"❌ Failed to send order confirmation email: {str(e)}")
                 print(f"Failed to send order confirmation email: {e}")
