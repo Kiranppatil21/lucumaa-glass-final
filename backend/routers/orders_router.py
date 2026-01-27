@@ -699,47 +699,130 @@ async def create_order_with_design(
     
     # Send order confirmation email with PDF
     try:
-        from .glass_configurator import PDFExportRequest, GlassExportSpec, CutoutExportSpec
+        from math import sin, cos, pi
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.graphics.shapes import Drawing, Circle, Rect, Polygon, Path, Ellipse
         
-        # Build PDF export request
-        pdf_request = PDFExportRequest(
-            glass_config=GlassExportSpec(
-                width_mm=data.glass_config.width_mm,
-                height_mm=data.glass_config.height_mm,
-                thickness_mm=data.glass_config.thickness_mm,
-                glass_type=data.glass_config.glass_type,
-                color_name=data.glass_config.color_name,
-                application=data.glass_config.application
-            ),
-            cutouts=[
-                CutoutExportSpec(
-                    number=str(i+1),
-                    type=c.get("type", "Hole"),
-                    diameter=c.get("diameter"),
-                    width=c.get("width"),
-                    height=c.get("height"),
-                    x=c.get("x", 0),
-                    y=c.get("y", 0),
-                    rotation=c.get("rotation", 0),
-                    left_edge=max(0, round(c.get("x", 0) - (c.get("width", c.get("diameter", 0)) / 2))),
-                    right_edge=max(0, round(data.glass_config.width_mm - c.get("x", 0) - (c.get("width", c.get("diameter", 0)) / 2))),
-                    top_edge=max(0, round(data.glass_config.height_mm - c.get("y", 0) - (c.get("height", c.get("diameter", 0)) / 2))),
-                    bottom_edge=max(0, round(c.get("y", 0) - (c.get("height", c.get("diameter", 0)) / 2)))
-                )
-                for i, c in enumerate(data.glass_config.cutouts)
-            ],
-            quantity=quantity
+        # DIRECTLY GENERATE PDF (don't call export_pdf which needs FastAPI dependency)
+        pdf_buffer = io.BytesIO()
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+        
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            alignment=1,
+            spaceAfter=10*mm,
+            textColor=colors.HexColor('#3B82F6')
         )
         
-        # Generate PDF buffer using the WORKING export_pdf function
-        from .glass_configurator import export_pdf
-        pdf_response = await export_pdf(pdf_request, current_user)
+        elements = []
+        elements.append(Paragraph("Glass Specification Sheet", title_style))
+        elements.append(Spacer(1, 5*mm))
         
-        # Extract PDF bytes from streaming response
-        pdf_chunks = []
-        async for chunk in pdf_response.body_iterator:
-            pdf_chunks.append(chunk)
-        pdf_bytes = b''.join(pdf_chunks)
+        # Glass info table
+        glass_data = [
+            ["Order Number", order_number],
+            ["Customer", order_doc['customer_name']],
+            ["Dimensions", f"{data.glass_config.width_mm} × {data.glass_config.height_mm} × {data.glass_config.thickness_mm} mm"],
+            ["Glass Type", data.glass_config.glass_type],
+            ["Color", data.glass_config.color_name],
+            ["Quantity", str(quantity)],
+        ]
+        
+        glass_table = Table(glass_data, colWidths=[60*mm, 100*mm])
+        glass_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3B82F6')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        elements.append(glass_table)
+        elements.append(Spacer(1, 10*mm))
+        
+        # Draw 2D diagram with cutouts
+        if data.glass_config.cutouts:
+            glass_w = float(data.glass_config.width_mm)
+            glass_h = float(data.glass_config.height_mm)
+            scale = 0.5
+            margin = 10*mm
+            drawing_width = min(glass_w * scale + 2*margin, 170*mm)
+            drawing_height = min(glass_h * scale + 2*margin, 120*mm)
+            
+            drawing = Drawing(drawing_width, drawing_height)
+            offset_x = margin
+            offset_y = margin
+            
+            # Draw glass rectangle
+            drawing.add(Rect(offset_x, offset_y, glass_w * scale, glass_h * scale, fillColor=colors.HexColor('#E8F4F8'), strokeColor=colors.HexColor('#3B82F6'), strokeWidth=2))
+            
+            # Draw cutouts
+            cutout_colors = {
+                'circle': colors.HexColor('#3B82F6'),
+                'rectangle': colors.HexColor('#22C55E'),
+                'square': colors.HexColor('#F59E0B'),
+                'triangle': colors.HexColor('#F97316'),
+                'diamond': colors.HexColor('#6366F1'),
+                'oval': colors.HexColor('#10B981'),
+                'pentagon': colors.HexColor('#8B5CF6'),
+                'hexagon': colors.HexColor('#EC4899'),
+                'octagon': colors.HexColor('#14B8A6'),
+                'star': colors.HexColor('#F59E0B'),
+                'heart': colors.HexColor('#EF4444')
+            }
+            
+            for cutout in data.glass_config.cutouts:
+                shape = str(cutout.get('type', 'Hole')).lower()
+                cx = offset_x + float(cutout.get('x', 0)) * scale
+                cy = offset_y + float(cutout.get('y', 0)) * scale
+                cutout_color = cutout_colors.get(shape, colors.blue)
+                
+                if shape == 'hole' or shape == 'circle':
+                    radius = (float(cutout.get('diameter', 20)) / 2) * scale
+                    drawing.add(Circle(cx, cy, radius, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == 'star':
+                    size = (float(cutout.get('diameter', 20)) / 2) * scale
+                    outer_r = size
+                    inner_r = size * 0.38
+                    points = []
+                    for i in range(10):
+                        angle = (i * pi / 5) - (pi / 2)
+                        r = outer_r if i % 2 == 0 else inner_r
+                        points.extend([cx + r * cos(angle), cy + r * sin(angle)])
+                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                elif shape == 'heart':
+                    size = float(cutout.get('diameter', 20)) * scale
+                    path = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
+                    scale_factor = size / 40
+                    for i in range(101):
+                        t = (i / 100) * 2 * pi
+                        x_val = 16 * (sin(t) ** 3) * scale_factor
+                        y_val = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        if i == 0:
+                            path.moveTo(cx + x_val, cy + y_val)
+                        else:
+                            path.lineTo(cx + x_val, cy + y_val)
+                    path.closePath()
+                    drawing.add(path)
+                else:
+                    # Rectangle/Square
+                    w = float(cutout.get('width', 20)) * scale
+                    h = float(cutout.get('height', 20)) * scale
+                    drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+            
+            elements.append(drawing)
+        
+        # Build PDF
+        doc.build(elements)
+        pdf_buffer.seek(0)
+        pdf_bytes = pdf_buffer.read()
         
         # Generate email HTML
         email_html = f"""
@@ -800,7 +883,7 @@ async def create_order_with_design(
                     </div>
                     
                     <p><strong>📎 Design Specification Attached</strong></p>
-                    <p>Please find the detailed design specification PDF attached to this email with all your cutout shapes.</p>
+                    <p>Please find the detailed design specification PDF attached with all your cutout shapes rendered accurately.</p>
                     
                     <p>Our team will start processing your order soon. You'll receive updates via email and SMS.</p>
                     
@@ -810,7 +893,7 @@ async def create_order_with_design(
                     
                     <div class="footer">
                         <p>© 2026 Lucumaa Glass | Professional Glass Solutions</p>
-                        <p>Contact: info@lucumaaglass.in | +91 XXXXX XXXXX</p>
+                        <p>Contact: info@lucumaaglass.in</p>
                     </div>
                 </div>
             </div>
@@ -818,7 +901,7 @@ async def create_order_with_design(
         </html>
         """
         
-        # Send email with PDF using aiosmtplib
+        # Send email with PDF
         SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
         SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
         SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
@@ -852,7 +935,7 @@ async def create_order_with_design(
             )
             logging.info(f"✅ Order confirmation email sent to {order_doc['customer_email']}")
         else:
-            logging.warning(f"⚠️ SMTP_PASSWORD not configured - email not sent")
+            logging.warning(f"⚠️ SMTP_PASSWORD not configured")
             
     except Exception as e:
         logging.error(f"❌ Error sending order email: {str(e)}")
