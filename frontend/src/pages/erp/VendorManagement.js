@@ -20,6 +20,7 @@ const VendorManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('vendors');
   const [pos, setPOs] = useState([]);
@@ -30,6 +31,10 @@ const VendorManagement = () => {
   const [showBulkPayment, setShowBulkPayment] = useState(false);
   const [selectedPOsForBulk, setSelectedPOsForBulk] = useState([]);
   const [bulkPaymentVendor, setBulkPaymentVendor] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalVendors, setTotalVendors] = useState(0);
+  const vendorsPerPage = 20;
 
   const [newVendor, setNewVendor] = useState({
     name: '',
@@ -74,19 +79,35 @@ const VendorManagement = () => {
   });
 
   useEffect(() => {
-    fetchData();
-  }, [categoryFilter]);
+    const handle = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [categoryFilter, debouncedSearch]);
+
+  useEffect(() => {
+    fetchData(currentPage);
+  }, [categoryFilter, debouncedSearch, currentPage]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     return { Authorization: `Bearer ${token}` };
   };
 
-  const fetchData = async () => {
+  const fetchData = async (page = currentPage) => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: vendorsPerPage.toString(),
+      });
+      if (categoryFilter !== 'all') params.append('category', categoryFilter);
+      if (debouncedSearch) params.append('search', debouncedSearch);
+
       const [vendorsRes, posRes] = await Promise.all([
-        fetch(`${API_BASE}/api/erp/vendors/${categoryFilter !== 'all' ? `?category=${categoryFilter}` : ''}`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/erp/vendors/?${params.toString()}`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE}/api/erp/vendors/po/list`, { headers: getAuthHeaders() })
       ]);
       
@@ -94,6 +115,9 @@ const VendorManagement = () => {
       const posData = await posRes.json();
       
       setVendors(vendorsData.vendors || []);
+      setTotalVendors(vendorsData.total ?? (vendorsData.vendors ? vendorsData.vendors.length : 0));
+      setTotalPages(vendorsData.total_pages || 1);
+      setCurrentPage(vendorsData.page || page);
       setPOs(posData.purchase_orders || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -468,11 +492,8 @@ const VendorManagement = () => {
     setBulkPaymentData({ payment_mode: 'bank_transfer', utr_reference: '', notes: '' });
   };
 
-  const filteredVendors = vendors.filter(v => 
-    v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.vendor_code?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Server-side pagination, no client-side filtering needed
+  const filteredVendors = vendors;
 
   const categoryOptions = [
     { value: 'raw_material', label: 'Raw Material', color: 'bg-blue-100 text-blue-700' },
@@ -706,6 +727,33 @@ const VendorManagement = () => {
               </table>
             </div>
           </CardContent>
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-slate-50">
+            <div className="text-sm text-slate-600">
+              Showing {vendors.length > 0 ? (currentPage - 1) * vendorsPerPage + 1 : 0} to {Math.min(currentPage * vendorsPerPage, totalVendors)} of {totalVendors} vendors
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+              >
+                <ChevronDown className="w-4 h-4 rotate-90" />
+              </Button>
+              <Button variant="outline" size="sm" disabled>
+                {currentPage} / {totalPages}
+              </Button>
+              <Button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
 

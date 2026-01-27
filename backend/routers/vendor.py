@@ -152,9 +152,11 @@ async def get_vendors(
     category: str = None,
     is_active: bool = True,
     search: str = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     current_user: dict = Depends(get_erp_user)
 ):
-    """Get all vendors"""
+    """Get all vendors with pagination"""
     db = get_db()
     
     query = {}
@@ -169,10 +171,22 @@ async def get_vendors(
             {"vendor_code": {"$regex": search, "$options": "i"}}
         ]
     
-    cursor = db.vendors.find(query, {"_id": 0}).sort("created_at", -1)
-    vendors = await cursor.to_list(length=500)
+    # Count total documents
+    total = await db.vendors.count_documents(query)
     
-    return {"vendors": vendors, "count": len(vendors)}
+    # Get paginated results
+    skip = (page - 1) * limit
+    cursor = db.vendors.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    vendors = await cursor.to_list(length=limit)
+    
+    return {
+        "vendors": vendors,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total + limit - 1) // limit,
+        "count": len(vendors)
+    }
 
 
 @vendor_router.get("/{vendor_id}")

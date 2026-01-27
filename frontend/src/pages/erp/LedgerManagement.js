@@ -33,6 +33,11 @@ const LedgerManagement = () => {
   const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
   const [showPeriodLockModal, setShowPeriodLockModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [customerPage, setCustomerPage] = useState(1);
+  const [vendorPage, setVendorPage] = useState(1);
+  const [customerTotalPages, setCustomerTotalPages] = useState(1);
+  const [vendorTotalPages, setVendorTotalPages] = useState(1);
+  const itemsPerPage = 20;
 
   const getAuthHeaders = () => ({
     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -42,35 +47,37 @@ const LedgerManagement = () => {
   const isCA = user?.role === 'ca' || user?.role === 'auditor';
 
   useEffect(() => {
-    fetchCustomers();
-    fetchVendors();
+    fetchCustomers(customerPage);
+    fetchVendors(vendorPage);
     fetchGLAccounts();
     fetchPeriodLocks();
     fetchOpeningBalances();
-  }, []);
+  }, [customerPage, vendorPage]);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (page = 1) => {
     try {
-      const res = await fetch(`${API_BASE}/api/erp/crm/customers`, {
+      const res = await fetch(`${API_BASE}/api/admin/customers?page=${page}&limit=${itemsPerPage}`, {
         headers: getAuthHeaders()
       });
       if (res.ok) {
         const data = await res.json();
         setCustomers(data.customers || []);
+        setCustomerTotalPages(data.total_pages || 1);
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
     }
   };
 
-  const fetchVendors = async () => {
+  const fetchVendors = async (page = 1) => {
     try {
-      const res = await fetch(`${API_BASE}/api/erp/vendors/`, {
+      const res = await fetch(`${API_BASE}/api/erp/vendors/?page=${page}&limit=${itemsPerPage}`, {
         headers: getAuthHeaders()
       });
       if (res.ok) {
         const data = await res.json();
         setVendors(data.vendors || []);
+        setVendorTotalPages(data.total_pages || 1);
       }
     } catch (error) {
       console.error('Error fetching vendors:', error);
