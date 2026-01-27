@@ -896,6 +896,25 @@ async def update_job_work_status(
         }
     )
     
+    # Get updated order for email notification
+    updated_order = await db.job_work_orders.find_one({"id": order_id}, {"_id": 0})
+    
+    # Send email notification to customer
+    customer_email = order.get("email") or order.get("customer_email")
+    if customer_email:
+        try:
+            from routers.notifications import notify_job_work_status_change, notify_job_work_completed
+            
+            # Send status change email
+            await notify_job_work_status_change(updated_order or order, customer_email)
+            
+            # Send completion email if status is "completed"
+            if update.status == "completed":
+                await notify_job_work_completed(updated_order or order, customer_email)
+                
+        except Exception as e:
+            logging.error(f"Failed to send job work email notification: {str(e)}")
+    
     # Send WhatsApp notification to customer
     if order.get("phone"):
         # Get updated order for notification
@@ -908,7 +927,7 @@ async def update_job_work_status(
         )
         logging.info(f"Job work notification for {order_id}: {notification_result}")
     
-    return {"message": f"Status updated to {update.status}", "status": update.status, "notification_sent": bool(order.get("phone"))}
+    return {"message": f"Status updated to {update.status}", "status": update.status, "notification_sent": bool(customer_email)}
 
 # ============ DASHBOARD STATS ============
 

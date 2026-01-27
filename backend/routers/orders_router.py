@@ -1170,84 +1170,37 @@ async def update_order_status(
         {"$set": update_data}
     )
     
-    # Send status update email
-    try:
-        status_messages = {
-            'pending': 'Your order is pending confirmation.',
-            'confirmed': '✅ Order confirmed! Manufacturing starts soon.',
-            'processing': '🏭 Your glass is being manufactured.',
-            'ready_for_dispatch': '📦 Your order is ready for dispatch.',
-            'dispatched': '🚚 Order dispatched! Delivery in 1-3 days.',
-            'delivered': '🎉 Order delivered! Thank you for choosing us.',
-            'cancelled': '❌ Your order has been cancelled.'
-        }
-        
-        status_display = new_status.replace('_', ' ').title()
-        
-        email_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-                .status-badge {{ display: inline-block; padding: 10px 20px; background: #10b981; color: white; border-radius: 5px; font-weight: bold; margin: 20px 0; }}
-                .order-info {{ background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }}
-                .button {{ display: inline-block; padding: 15px 30px; background: #f97316; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }}
-                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>📦 Order Status Update</h1>
-                </div>
-                <div class="content">
-                    <p>Dear {order.get('customer_name', 'Customer')},</p>
-                    <p>Your order status has been updated:</p>
-                    
-                    <div style="text-align: center;">
-                        <div class="status-badge">{status_display}</div>
-                        <p style="font-size: 16px; color: #666;">{status_messages.get(new_status, 'Your order status has been updated.')}</p>
-                    </div>
-                    
-                    <div class="order-info">
-                        <p><strong>Order Number:</strong> {order.get('order_number', 'N/A')}</p>
-                        <p><strong>Product:</strong> {order.get('product_name', 'Custom Glass')}</p>
-                        <p><strong>Updated:</strong> {datetime.now().strftime('%d %B %Y, %H:%M')}</p>
-                        {f'<p><strong>Notes:</strong> {notes}</p>' if notes else ''}
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <a href="https://lucumaaglass.in/track?order={order_id}" class="button">Track Your Order</a>
-                    </div>
-                    
-                    <p>If you have any questions, please don't hesitate to contact us.</p>
-                    
-                    <div class="footer">
-                        <p>© 2026 Lucumaa Glass | Professional Glass Solutions</p>
-                        <p>Contact: info@lucumaaglass.in</p>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        async def send_status_email():
-            try:
-                SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
-                SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
-                SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
-                SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
-                
-                if SMTP_PASSWORD and order.get('customer_email'):
-                    message = MIMEMultipart()
-                    message['Subject'] = f"Order Status Update: {status_display} - {order.get('order_number', 'Order')}"
-                    message['From'] = f"Lucumaa Glass <{SMTP_USER}>"
-                    message['To'] = order['customer_email']
+    # Get updated order for notification
+    updated_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    
+    # Send enhanced email notification using new notify function
+    customer_email = order.get('customer_email')
+    if customer_email:
+        try:
+            from routers.notifications import notify_order_status_change
+            await notify_order_status_change(updated_order or order, customer_email)
+        except Exception as e:
+            logging.error(f"Failed to send order status email: {str(e)}")
+    
+    # Also send WhatsApp notification if phone is available
+    if order.get('phone'):
+        try:
+            status_messages = {
+                'pending': 'Your order is pending confirmation.',
+                'confirmed': '✅ Order confirmed! Manufacturing starts soon.',
+                'processing': '🏭 Your glass is being manufactured.',
+                'ready_for_dispatch': '📦 Your order is ready for dispatch.',
+                'dispatched': '🚚 Order dispatched! Delivery in 1-3 days.',
+                'delivered': '🎉 Order delivered! Thank you for choosing us.',
+                'cancelled': '❌ Your order has been cancelled.'
+            }
+            
+            message = f"Order {order.get('order_number', 'Update')}: {status_messages.get(new_status, 'Status updated.')}"
+            # WhatsApp sending would go here if configured
+        except Exception as e:
+            logging.error(f"Failed to send WhatsApp notification: {str(e)}")
+    
+    return {"message": f"Order status updated to {new_status}", "status": new_status}
                     
                     html_part = MIMEText(email_html, 'html')
                     message.attach(html_part)

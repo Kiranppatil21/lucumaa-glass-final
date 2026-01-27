@@ -367,3 +367,293 @@ async def notify_overdue_invoice(invoice_data: dict, days_overdue: int, customer
     if customer_email:
         subject, html = get_overdue_invoice_email(invoice_data, days_overdue)
         await send_email(customer_email, subject, html)
+
+
+# =============== JOB WORK NOTIFICATIONS ===============
+
+def get_status_badge_color(status: str) -> str:
+    """Get badge color based on status"""
+    colors = {
+        "accepted": "#059669",
+        "material_received": "#0891b2",
+        "in_process": "#f59e0b",
+        "completed": "#8b5cf6",
+        "ready_for_delivery": "#06b6d4",
+        "delivered": "#10b981",
+        "cancelled": "#ef4444"
+    }
+    return colors.get(status, "#6b7280")
+
+
+def get_status_label(status: str) -> str:
+    """Get readable status label"""
+    labels = {
+        "accepted": "✅ Order Accepted",
+        "material_received": "📦 Material Received",
+        "in_process": "⚙️ In Process",
+        "completed": "✔️ Completed",
+        "ready_for_delivery": "🚚 Ready for Delivery",
+        "delivered": "🎉 Delivered",
+        "cancelled": "❌ Cancelled"
+    }
+    return labels.get(status, status.replace("_", " ").title())
+
+
+def get_job_work_status_email(job_work_data: dict, new_status: str) -> tuple:
+    """Email template for job work order status update"""
+    job_work_number = job_work_data.get('job_work_number', 'N/A')
+    customer_name = job_work_data.get('customer_name', 'Valued Customer')
+    status_label = get_status_label(new_status)
+    badge_color = get_status_badge_color(new_status)
+    
+    # Get glass dimensions
+    glass_dims = "Not Specified"
+    if job_work_data.get('items') and len(job_work_data['items']) > 0:
+        item = job_work_data['items'][0]
+        width = item.get('width_inch', 0)
+        height = item.get('height_inch', 0)
+        thickness = item.get('thickness_mm', 0)
+        if width and height and thickness:
+            glass_dims = f"{width}\" × {height}\" × {thickness}mm"
+    
+    # Status history timeline
+    status_history_html = ""
+    if job_work_data.get('status_history'):
+        status_history_html = "<h3 style='color: #0d9488; margin-top: 20px;'>Order Timeline:</h3>"
+        status_history_html += "<ul style='list-style: none; padding: 0;'>"
+        for entry in job_work_data['status_history'][-5:]:  # Last 5 updates
+            timestamp = entry.get('timestamp', '')
+            status = entry.get('status', '')
+            by = entry.get('by', 'System')
+            status_label_hist = get_status_label(status)
+            timestamp_formatted = timestamp.split('T')[0] if 'T' in timestamp else timestamp
+            status_history_html += f"""
+                <li style='padding: 8px; margin: 5px 0; background: #f0fdf4; border-left: 3px solid {get_status_badge_color(status)}; border-radius: 3px;'>
+                    <strong>{status_label_hist}</strong> - {timestamp_formatted} by {by}
+                </li>
+            """
+        status_history_html += "</ul>"
+    
+    content = f"""
+        <h2 style="color: #0d9488; margin-top: 0;">🔔 Order Status Update</h2>
+        <p style="font-size: 16px; color: #1e293b;">Hi {customer_name},</p>
+        
+        <p style="font-size: 14px; color: #475569;">Your job work order status has been updated:</p>
+        
+        <!-- Status Badge -->
+        <div style="background-color: {badge_color}; color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h3 style="margin: 0; font-size: 20px;">{status_label}</h3>
+        </div>
+        
+        <!-- Order Details -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
+            <tr style="background-color: #f8fafc;">
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Job Work Number</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{job_work_number}</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Glass Dimensions</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{glass_dims}</td>
+            </tr>
+            <tr style="background-color: #f8fafc;">
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Current Status</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{status_label}</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Updated On</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{datetime.now().strftime('%d %b %Y, %H:%M:%S')}</td>
+            </tr>
+        </table>
+        
+        {status_history_html}
+        
+        <!-- Call to Action -->
+        <div style="background-color: #f0fdf4; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #166534; font-size: 14px;">
+                Need help or want to track your order? Contact us at <strong>+91 92847 01985</strong> or reply to this email.
+            </p>
+        </div>
+        
+        <p style="font-size: 13px; color: #64748b; margin-top: 20px;">Thank you for choosing Lucumaa Glass!</p>
+    """
+    
+    subject = f"📦 Job Work Status Updated: {status_label} - {job_work_number}"
+    return subject, get_base_template(content)
+
+
+def get_job_work_completion_email(job_work_data: dict) -> tuple:
+    """Email template for job work order completion notification"""
+    job_work_number = job_work_data.get('job_work_number', 'N/A')
+    customer_name = job_work_data.get('customer_name', 'Valued Customer')
+    
+    content = f"""
+        <h2 style="color: #0d9488; margin-top: 0;">✅ Your Job Work Order is Complete!</h2>
+        <p style="font-size: 16px; color: #1e293b;">Hi {customer_name},</p>
+        
+        <p style="font-size: 14px; color: #475569;">Great news! Your job work order has been completed successfully:</p>
+        
+        <!-- Completion Badge -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h3 style="margin: 0; font-size: 20px;">✔️ Order Completed</h3>
+        </div>
+        
+        <!-- Order Details -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
+            <tr style="background-color: #f8fafc;">
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Job Work Number</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{job_work_number}</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Completion Date</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{datetime.now().strftime('%d %b %Y')}</td>
+            </tr>
+        </table>
+        
+        <!-- Next Steps -->
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <h4 style="margin: 0 0 8px 0; color: #92400e;">What's Next?</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 14px;">
+                <li>Your order is ready for pickup/delivery</li>
+                <li>Please arrange pickup at your earliest convenience</li>
+                <li>Contact us for delivery options</li>
+            </ul>
+        </div>
+        
+        <!-- Contact -->
+        <div style="background-color: #f0fdf4; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #166534; font-size: 14px;">
+                For pickup/delivery coordination: <strong>+91 92847 01985</strong>
+            </p>
+        </div>
+    """
+    
+    subject = f"✅ Your Job Work Order is Complete - {job_work_number}"
+    return subject, get_base_template(content)
+
+
+async def notify_job_work_status_change(job_work_data: dict, customer_email: str):
+    """Send email notification when job work order status changes"""
+    if customer_email:
+        status = job_work_data.get('status', 'unknown')
+        subject, html = get_job_work_status_email(job_work_data, status)
+        await send_email(customer_email, subject, html)
+        logging.info(f"Job work status notification sent to {customer_email}")
+
+
+async def notify_job_work_completed(job_work_data: dict, customer_email: str):
+    """Send completion notification for job work order"""
+    if customer_email:
+        subject, html = get_job_work_completion_email(job_work_data)
+        await send_email(customer_email, subject, html)
+        logging.info(f"Job work completion notification sent to {customer_email}")
+
+
+# =============== ORDER NOTIFICATIONS (Additional) ===============
+
+def get_order_status_email(order_data: dict, new_status: str) -> tuple:
+    """Email template for production order status update"""
+    order_number = order_data.get('order_number', 'N/A')
+    customer_name = order_data.get('customer_name', 'Valued Customer')
+    
+    # Map status to labels
+    status_labels = {
+        "pending": "⏳ Pending",
+        "processing": "⚙️ Processing",
+        "production": "🔨 In Production",
+        "quality_check": "✅ Quality Check",
+        "packing": "📦 Packing",
+        "ready": "🚚 Ready for Dispatch",
+        "dispatched": "📮 Dispatched",
+        "delivered": "🎉 Delivered",
+        "cancelled": "❌ Cancelled"
+    }
+    
+    status_label = status_labels.get(new_status, new_status.replace("_", " ").title())
+    
+    status_colors = {
+        "pending": "#6b7280",
+        "processing": "#3b82f6",
+        "production": "#f59e0b",
+        "quality_check": "#8b5cf6",
+        "packing": "#06b6d4",
+        "ready": "#10b981",
+        "dispatched": "#0d9488",
+        "delivered": "#059669",
+        "cancelled": "#ef4444"
+    }
+    badge_color = status_colors.get(new_status, "#6b7280")
+    
+    # Get order items summary
+    items_html = "<h4 style='color: #0d9488;'>Order Items:</h4>"
+    total_items = 0
+    if order_data.get('items'):
+        items_html += "<ul style='margin: 10px 0; padding-left: 20px; font-size: 14px;'>"
+        for item in order_data['items'][:5]:  # Show first 5 items
+            quantity = item.get('quantity', 1)
+            total_items += quantity
+            item_name = item.get('product_name', 'Product')
+            items_html += f"<li>{item_name} - Qty: {quantity}</li>"
+        if len(order_data['items']) > 5:
+            items_html += f"<li><em>+ {len(order_data['items']) - 5} more items</em></li>"
+        items_html += "</ul>"
+    else:
+        items_html += "<p style='font-size: 14px;'>Order details available on your account</p>"
+    
+    content = f"""
+        <h2 style="color: #0d9488; margin-top: 0;">📦 Your Order Status Updated</h2>
+        <p style="font-size: 16px; color: #1e293b;">Hi {customer_name},</p>
+        
+        <p style="font-size: 14px; color: #475569;">Your order status has been updated:</p>
+        
+        <!-- Status Badge -->
+        <div style="background-color: {badge_color}; color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h3 style="margin: 0; font-size: 20px;">{status_label}</h3>
+        </div>
+        
+        <!-- Order Details -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
+            <tr style="background-color: #f8fafc;">
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Order Number</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{order_number}</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Status</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{status_label}</td>
+            </tr>
+            <tr style="background-color: #f8fafc;">
+                <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: bold; color: #0d9488;">Updated On</td>
+                <td style="padding: 12px; border: 1px solid #e2e8f0; color: #1e293b;">{datetime.now().strftime('%d %b %Y, %H:%M:%S')}</td>
+            </tr>
+        </table>
+        
+        <!-- Items Summary -->
+        {items_html}
+        
+        <!-- Status Info -->
+        <div style="background-color: #f0fdf4; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #166534; font-size: 14px;">
+                Your order is progressing smoothly. You can track the latest updates on your account dashboard or contact us for assistance.
+            </p>
+        </div>
+        
+        <!-- Contact -->
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #78350f; font-size: 14px;">
+                For order tracking or support: <strong>+91 92847 01985</strong>
+            </p>
+        </div>
+        
+        <p style="font-size: 13px; color: #64748b; margin-top: 20px;">Thank you for your business with Lucumaa Glass!</p>
+    """
+    
+    subject = f"📦 Order Status Updated: {status_label} - {order_number}"
+    return subject, get_base_template(content)
+
+
+async def notify_order_status_change(order_data: dict, customer_email: str):
+    """Send email notification when order status changes"""
+    if customer_email:
+        status = order_data.get('status', 'processing')
+        subject, html = get_order_status_email(order_data, status)
+        await send_email(customer_email, subject, html)
+        logging.info(f"Order status notification sent to {customer_email}")
