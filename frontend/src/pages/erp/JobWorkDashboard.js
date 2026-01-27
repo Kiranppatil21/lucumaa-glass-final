@@ -108,35 +108,6 @@ const JobWorkDashboard = () => {
     }
   };
 
-  const handleDownloadJobWorkData = (order) => {
-    try {
-      const jobWorkData = {
-        job_work_number: order.job_work_number,
-        customer_name: order.customer_name,
-        company_name: order.company_name,
-        phone: order.phone,
-        email: order.email,
-        items: order.items,
-        item_details: order.item_details,
-        summary: order.summary,
-        created_at: order.created_at
-      };
-      
-      const blob = new Blob([JSON.stringify(jobWorkData, null, 2)], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `jobwork_${order.job_work_number}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-      toast.success('Job work data downloaded!');
-    } catch (error) {
-      toast.error('Failed to download job work data');
-    }
-  };
-
   const handleDownloadDesignPDF = async (order) => {
     try {
       const token = localStorage.getItem('token');
@@ -627,21 +598,79 @@ const JobWorkDashboard = () => {
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline"
-                  onClick={() => handleDownloadJobWorkData(selectedOrder)}
-                  className="flex-1"
-                >
-                  <Download className="w-4 h-4 mr-2" /> Download Job Work Data
-                </Button>
-                {(selectedOrder.cutouts || selectedOrder.design_data) && (
+              {/* Design Preview */}
+              {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts) && (
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
+                  <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    Design Preview
+                  </h4>
+                  <div className="bg-white rounded border-2 border-dashed border-slate-300 p-4">
+                    <div className="bg-blue-50 rounded w-full h-48 flex items-center justify-center relative overflow-hidden">
+                      <svg viewBox="0 0 900 600" className="w-full h-full" style={{maxHeight: '200px'}}>
+                        {/* Glass background */}
+                        <rect x="10" y="10" width="880" height="580" fill="#d4e5f7" opacity="0.4" stroke="#3b82f6" strokeWidth="2" />
+                        
+                        {/* Render cutouts */}
+                        {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).map((cutout, idx) => {
+                          const scale = 0.85;
+                          const x = 10 + (cutout.x || 450) * scale;
+                          const y = 10 + (cutout.y || 300) * scale;
+                          const r = ((cutout.diameter || 60) / 2) * scale;
+                          
+                          if (cutout.type === 'HR') {
+                            return (
+                              <g key={idx} transform={`translate(${x},${y}) rotate(${cutout.rotation || 0})`}>
+                                <path d="M0,-8 C-8,-14 -14,-11 -14,-3 C-14,4 -5,11 0,14 C5,11 14,4 14,-3 C14,-11 8,-14 0,-8" fill="#ec4899" />
+                              </g>
+                            );
+                          } else if (cutout.type === 'ST') {
+                            const points = [];
+                            for (let i = 0; i < 10; i++) {
+                              const angle = (i * Math.PI / 5) - Math.PI / 2;
+                              const radius = i % 2 === 0 ? 12 : 4.8;
+                              points.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+                            }
+                            const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join('') + 'Z';
+                            return (
+                              <g key={idx} transform={`translate(${x},${y}) rotate(${cutout.rotation || 0})`}>
+                                <path d={pathData} fill="#fbbf24" />
+                              </g>
+                            );
+                          } else if (cutout.type === 'DM') {
+                            return (
+                              <g key={idx} transform={`translate(${x},${y}) rotate(${cutout.rotation || 0})`}>
+                                <polygon points="0,-12 12,0 0,12 -12,0" fill="#f97316" />
+                              </g>
+                            );
+                          } else if (cutout.type === 'SH') {
+                            return (
+                              <circle key={idx} cx={x} cy={y} r={r} fill="#3b82f6" />
+                            );
+                          } else {
+                            return (
+                              <circle key={idx} cx={x} cy={y} r={r} fill="#6b7280" opacity="0.6" />
+                            );
+                          }
+                        })}
+                      </svg>
+                    </div>
+                    <p className="text-xs text-slate-500 text-center mt-2">
+                      {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).length} cutout{(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Download Button */}
+              <div className="flex gap-2">
+                {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts) && (
                   <Button 
-                    variant="outline"
+                    variant="default"
                     onClick={() => handleDownloadDesignPDF(selectedOrder)}
-                    className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                   >
-                    <Image className="w-4 h-4 mr-2" /> Download Design PDF
+                    <FileText className="w-4 h-4 mr-2" /> Download Design PDF
                   </Button>
                 )}
                 <Button onClick={() => setSelectedOrder(null)} className="flex-1">
