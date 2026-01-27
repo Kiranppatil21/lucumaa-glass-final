@@ -892,7 +892,15 @@ async def create_order_with_design(
                     }
                     
                     for cutout in glass_config['cutouts']:
-                        shape = str(cutout.get('shape', 'circle')).lower()
+                        # Map type codes to shape names (HR=heart, ST=star, CR=circle, etc.)
+                        type_to_shape = {
+                            'HR': 'heart', 'ST': 'star', 'CR': 'circle', 'REC': 'rectangle',
+                            'SQ': 'square', 'TRI': 'triangle', 'DIA': 'diamond', 'OV': 'oval',
+                            'PEN': 'pentagon', 'HEX': 'hexagon', 'OCT': 'octagon'
+                        }
+                        shape_type = cutout.get('type', cutout.get('shape', 'CR'))
+                        shape = type_to_shape.get(shape_type, str(shape_type).lower())
+                        
                         cx = offset_x + as_float(cutout.get('x', 0)) * scale
                         cy = offset_y + as_float(cutout.get('y', 0)) * scale
                         cutout_color = cutout_colors.get(shape, colors.blue)
@@ -928,6 +936,39 @@ async def create_order_with_design(
                                     path.lineTo(cx + x_val, cy + y_val)
                             path.closePath()
                             drawing.add(path)
+                        elif shape == 'triangle':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            points = [cx, cy + size, cx - size, cy - size, cx + size, cy - size]
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'diamond':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            points = [cx, cy + size, cx + size, cy, cx, cy - size, cx - size, cy]
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'oval':
+                            w = as_float(cutout.get('width', 20)) * scale
+                            h = as_float(cutout.get('height', w)) * scale
+                            drawing.add(Ellipse(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'pentagon':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            points = []
+                            for i in range(5):
+                                angle = (i * 2 * pi / 5) - (pi / 2)
+                                points.extend([cx + size * cos(angle), cy + size * sin(angle)])
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'hexagon':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            points = []
+                            for i in range(6):
+                                angle = (i * pi / 3)
+                                points.extend([cx + size * cos(angle), cy + size * sin(angle)])
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                        elif shape == 'octagon':
+                            size = (as_float(cutout.get('diameter', 20)) / 2) * scale
+                            points = []
+                            for i in range(8):
+                                angle = (i * pi / 4)
+                                points.extend([cx + size * cos(angle), cy + size * sin(angle)])
+                            drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                         else:
                             w = as_float(cutout.get('width', 20)) * scale
                             h = as_float(cutout.get('height', 20)) * scale
