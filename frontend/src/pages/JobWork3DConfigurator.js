@@ -483,95 +483,131 @@ const JobWork3DConfigurator = () => {
 
     let mesh;
     if (cutout.type === 'HR') {
-      // Heart shape - flat polygon visible from above
+      // Heart shape - 2D polygon
       const size = (cutout.diameter || 60) * scale / 2;
       const heartPoints = [];
       for (let i = 0; i <= 100; i++) {
         const t = (i / 100) * Math.PI * 2;
         const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
         const y = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * size / 20;
-        heartPoints.push(new BABYLON.Vector3(x, y, 0));
+        heartPoints.push(new BABYLON.Vector2(x, y));
       }
-      mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
         shape: heartPoints,
-        depth: 0.5,
-        sideOrientation: BABYLON.Mesh.FRONTSIDE
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene, earcut);
     } else if (cutout.type === 'ST') {
-      // Star shape - flat polygon visible from above
+      // Star shape - 2D polygon
       const outerRadius = (cutout.diameter || 70) * scale / 2;
       const innerRadius = outerRadius * 0.38;
       const starPoints = [];
       for (let i = 0; i < 10; i++) {
         const angle = (i * Math.PI / 5) - Math.PI / 2;
         const radius = i % 2 === 0 ? outerRadius : innerRadius;
-        starPoints.push(new BABYLON.Vector3(
+        starPoints.push(new BABYLON.Vector2(
           Math.cos(angle) * radius,
-          Math.sin(angle) * radius,
-          0
+          Math.sin(angle) * radius
         ));
       }
-      mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
         shape: starPoints,
-        depth: 0.5,
-        sideOrientation: BABYLON.Mesh.FRONTSIDE
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+    } else if (cutout.type === 'DM') {
+      // Diamond - 2D polygon
+      const size = (cutout.width || 70) * scale / 2;
+      const diamondPoints = [
+        new BABYLON.Vector2(0, size),
+        new BABYLON.Vector2(size, 0),
+        new BABYLON.Vector2(0, -size),
+        new BABYLON.Vector2(-size, 0)
+      ];
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+        shape: diamondPoints,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+    } else if (cutout.type === 'T') {
+      // Triangle - 2D polygon
+      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale / 2;
+      const h = size * Math.sqrt(3) / 2;
+      const trianglePoints = [
+        new BABYLON.Vector2(0, h),
+        new BABYLON.Vector2(-size, -h/2),
+        new BABYLON.Vector2(size, -h/2)
+      ];
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+        shape: trianglePoints,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene, earcut);
     } else if (cutout.type === 'PT') {
-      // Pentagon - cylinder lying flat
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-        diameter: (cutout.diameter || 60) * scale,
-        height: 0.5,
-        tessellation: 5
-      }, scene);
+      // Pentagon - 2D polygon
+      const radius = (cutout.diameter || 60) * scale / 2;
+      const pentagonPoints = [];
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+        pentagonPoints.push(new BABYLON.Vector2(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius
+        ));
+      }
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+        shape: pentagonPoints,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+    } else if (cutout.type === 'HX') {
+      // Hexagon - 2D polygon
+      const radius = (cutout.diameter || 50) * scale / 2;
+      const hexagonPoints = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = i * Math.PI / 3;
+        hexagonPoints.push(new BABYLON.Vector2(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius
+        ));
+      }
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+        shape: hexagonPoints,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
     } else if (cutout.type === 'OC') {
-      // Octagon - cylinder lying flat
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-        diameter: (cutout.diameter || 60) * scale,
-        height: 0.5,
-        tessellation: 8
+      // Octagon - 2D polygon
+      const radius = (cutout.diameter || 60) * scale / 2;
+      const octagonPoints = [];
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4;
+        octagonPoints.push(new BABYLON.Vector2(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius
+        ));
+      }
+      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+        shape: octagonPoints,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+      }, scene, earcut);
+    } else if (cutout.type === 'SH') {
+      // Circle - 2D disc
+      mesh = BABYLON.MeshBuilder.CreateDisc(`cutout_${cutout.id}`, {
+        radius: (cutout.diameter || 50) * scale / 2,
+        tessellation: 64,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene);
     } else if (cutout.type === 'OV') {
-      // Oval - flat ellipse
+      // Oval - 2D ellipse
       const w = (cutout.width || 100) * scale;
       const h = (cutout.height || 60) * scale;
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-        diameter: Math.max(w, h),
-        height: 0.5,
-        tessellation: 32
+      mesh = BABYLON.MeshBuilder.CreateDisc(`cutout_${cutout.id}`, {
+        radius: Math.max(w, h) / 2,
+        tessellation: 64,
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene);
       mesh.scaling.x = w / Math.max(w, h);
       mesh.scaling.y = h / Math.max(w, h);
-    } else if (cutout.type === 'DM') {
-      // Diamond - flat rotated square
-      const w = (cutout.width || 70) * scale;
-      const h = (cutout.height || 70) * scale;
-      mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
-        width: w,
-        height: h,
-        depth: 0.5
-      }, scene);
-      mesh.rotation.z = Math.PI / 4; // 45 degree rotation
-    } else if (['SH', 'HX'].includes(cutout.type)) {
-      const tessellation = cutout.type === 'HX' ? 6 : 32;
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-        diameter: (cutout.diameter || 50) * scale,
-        height: 0.5,
-        tessellation
-      }, scene);
-    } else if (cutout.type === 'T') {
-      // Triangle - flat cylinder
-      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale;
-      mesh = BABYLON.MeshBuilder.CreateCylinder(`cutout_${cutout.id}`, {
-        diameter: size,
-        height: 0.5,
-        tessellation: 3
-      }, scene);
-      mesh.rotation.z = Math.PI / 6; // Rotate to point up
     } else {
-      mesh = BABYLON.MeshBuilder.CreateBox(`cutout_${cutout.id}`, {
+      // Rectangle - 2D plane
+      mesh = BABYLON.MeshBuilder.CreatePlane(`cutout_${cutout.id}`, {
         width: (cutout.width || 100) * scale,
         height: (cutout.height || 80) * scale,
-        depth: 0.5
+        sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene);
     }
 
