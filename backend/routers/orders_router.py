@@ -1201,30 +1201,3 @@ async def update_order_status(
             logging.error(f"Failed to send WhatsApp notification: {str(e)}")
     
     return {"message": f"Order status updated to {new_status}", "status": new_status}
-                    
-                    html_part = MIMEText(email_html, 'html')
-                    message.attach(html_part)
-                    
-                    await aiosmtplib.send(
-                        message,
-                        hostname=SMTP_HOST,
-                        port=SMTP_PORT,
-                        use_tls=True,
-                        username=SMTP_USER,
-                        password=SMTP_PASSWORD
-                    )
-            except Exception as e:
-                print(f"Failed to send status update email: {e}")
-        
-        # Schedule email sending
-        import asyncio
-        asyncio.create_task(send_status_email())
-        
-    except Exception as e:
-        print(f"Error in status update email: {e}")
-    
-    return {
-        "message": "Order status updated successfully",
-        "order_id": order_id,
-        "status": new_status
-    }

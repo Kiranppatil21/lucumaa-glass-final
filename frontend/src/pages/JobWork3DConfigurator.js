@@ -645,31 +645,78 @@ const JobWork3DConfigurator = () => {
     const bounds = getCutoutBounds(cutout);
     
     let borderPoints = [];
-    
-    // Circular and polygon shapes - use circular border
-    if (['SH', 'HX', 'HR', 'ST', 'PT', 'OC'].includes(cutout.type)) {
-      const radius = bounds.halfWidth * scale;
-      let segments = 32;
-      if (cutout.type === 'HX') segments = 6;
-      else if (cutout.type === 'PT') segments = 5;
-      else if (cutout.type === 'OC') segments = 8;
-      else if (cutout.type === 'ST') segments = 10;
-      
-      for (let i = 0; i <= segments; i++) {
-        const angle = (i / segments) * Math.PI * 2;
-        borderPoints.push(new BABYLON.Vector3(posX + Math.cos(angle) * radius, posY + Math.sin(angle) * radius, 12));
+
+    if (cutout.type === 'HR') {
+      const size = ((cutout.diameter || 60) / 2) * scale;
+      for (let i = 0; i <= 100; i++) {
+        const t = (i / 100) * Math.PI * 2;
+        const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * size / 20;
+        borderPoints.push(new BABYLON.Vector3(posX + x, posY + y, 12));
       }
-    } else {
-      // Rectangular shapes (including oval, diamond, rectangle, triangle)
-      const halfW = bounds.halfWidth * scale;
-      const halfH = bounds.halfHeight * scale;
+    } else if (cutout.type === 'ST') {
+      const outerRadius = ((cutout.diameter || 70) / 2) * scale;
+      const innerRadius = outerRadius * 0.38;
+      for (let i = 0; i <= 10; i++) {
+        const angle = (i * Math.PI / 5) - Math.PI / 2;
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        borderPoints.push(new BABYLON.Vector3(
+          posX + Math.cos(angle) * radius,
+          posY + Math.sin(angle) * radius,
+          12
+        ));
+      }
+    } else if (cutout.type === 'DM') {
+      const halfW = ((cutout.width || 70) / 2) * scale;
+      const halfH = ((cutout.height || 70) / 2) * scale;
       borderPoints = [
-        new BABYLON.Vector3(posX - halfW, posY - halfH, 12),
-        new BABYLON.Vector3(posX + halfW, posY - halfH, 12),
-        new BABYLON.Vector3(posX + halfW, posY + halfH, 12),
-        new BABYLON.Vector3(posX - halfW, posY + halfH, 12),
-        new BABYLON.Vector3(posX - halfW, posY - halfH, 12),
+        new BABYLON.Vector3(posX, posY + halfH, 12),
+        new BABYLON.Vector3(posX + halfW, posY, 12),
+        new BABYLON.Vector3(posX, posY - halfH, 12),
+        new BABYLON.Vector3(posX - halfW, posY, 12),
+        new BABYLON.Vector3(posX, posY + halfH, 12),
       ];
+    } else if (cutout.type === 'PG' && cutout.points && cutout.points.length >= 3) {
+      borderPoints = cutout.points.map(p =>
+        new BABYLON.Vector3(
+          posX + (p.x - cutout.x),
+          posY + (p.y - cutout.y),
+          12
+        )
+      );
+      borderPoints.push(borderPoints[0]);
+    } else if (cutout.type === 'T') {
+      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale;
+      const h = (Math.sqrt(3) / 2) * size;
+      borderPoints = [
+        new BABYLON.Vector3(posX, posY + (2 / 3) * h, 12),
+        new BABYLON.Vector3(posX - size / 2, posY - h / 3, 12),
+        new BABYLON.Vector3(posX + size / 2, posY - h / 3, 12),
+        new BABYLON.Vector3(posX, posY + (2 / 3) * h, 12),
+      ];
+    } else {
+      if (['SH', 'HX', 'PT', 'OC'].includes(cutout.type)) {
+        const radius = bounds.halfWidth * scale;
+        let segments = 32;
+        if (cutout.type === 'HX') segments = 6;
+        else if (cutout.type === 'PT') segments = 5;
+        else if (cutout.type === 'OC') segments = 8;
+
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          borderPoints.push(new BABYLON.Vector3(posX + Math.cos(angle) * radius, posY + Math.sin(angle) * radius, 12));
+        }
+      } else {
+        const halfW = bounds.halfWidth * scale;
+        const halfH = bounds.halfHeight * scale;
+        borderPoints = [
+          new BABYLON.Vector3(posX - halfW, posY - halfH, 12),
+          new BABYLON.Vector3(posX + halfW, posY - halfH, 12),
+          new BABYLON.Vector3(posX + halfW, posY + halfH, 12),
+          new BABYLON.Vector3(posX - halfW, posY + halfH, 12),
+          new BABYLON.Vector3(posX - halfW, posY - halfH, 12),
+        ];
+      }
     }
     
     const border = BABYLON.MeshBuilder.CreateLines(`border_${cutout.id}`, { points: borderPoints }, scene);
