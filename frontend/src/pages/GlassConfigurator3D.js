@@ -900,7 +900,7 @@ const GlassConfigurator3D = () => {
       for (let i = 0; i <= 100; i++) {
         const t = (i / 100) * Math.PI * 2;
         const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * size / 20;
+        const y = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * size / 20;
         heartPoints.push(new BABYLON.Vector3(x, y, 0));
       }
       mesh = BABYLON.MeshBuilder.ExtrudePolygon(`cutout_${cutout.id}`, {
@@ -908,7 +908,7 @@ const GlassConfigurator3D = () => {
         depth: 15,  // Increased depth for better 3D effect
         sideOrientation: BABYLON.Mesh.DOUBLESIDE
       }, scene, earcut);
-      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.x = Math.PI / 2;
     } else if (cutout.type === 'ST') {
       // Star shape - proper 5-pointed star using CreatePolygon with increased depth
       const outerRadius = (cutout.diameter || 70) * scale / 2;
@@ -1131,7 +1131,7 @@ const GlassConfigurator3D = () => {
       for (let i = 0; i <= 100; i++) {
         const t = (i / 100) * Math.PI * 2;
         const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * size / 20;
+        const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * size / 20;
         borderPoints.push(new BABYLON.Vector3(posX + x, posY + y, 12));
       }
     } else if (cutout.type === 'ST') {
