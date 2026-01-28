@@ -5,6 +5,7 @@ import * as BABYLON from '@babylonjs/core';
 import '@babylonjs/loaders';
 import { AdvancedDynamicTexture, TextBlock, Control } from '@babylonjs/gui';
 import earcut from 'earcut';
+import * as ShapeGen from '../utils/ShapeGenerator';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   Package, Ruler, Circle, Square, RectangleHorizontal,
@@ -482,134 +483,71 @@ const JobWork3DConfigurator = () => {
     const rotation = (cutout.rotation || 0) * Math.PI / 180;
 
     let mesh;
+    let normalizedPoints = [];
+    
+    // Get normalized points based on shape type
     if (cutout.type === 'HR') {
-      // Heart shape - 2D polygon
-      const size = (cutout.diameter || 60) * scale / 2;
-      const heartPoints = [];
-      for (let i = 0; i <= 100; i++) {
-        const t = (i / 100) * Math.PI * 2;
-        const x = 16 * Math.pow(Math.sin(t), 3) * size / 20;
-        const y = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * size / 20;
-        heartPoints.push(new BABYLON.Vector2(x, y));
-      }
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: heartPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateHeartPoints(200);
     } else if (cutout.type === 'ST') {
-      // Star shape - 2D polygon
-      const outerRadius = (cutout.diameter || 70) * scale / 2;
-      const innerRadius = outerRadius * 0.38;
-      const starPoints = [];
-      for (let i = 0; i < 10; i++) {
-        const angle = (i * Math.PI / 5) - Math.PI / 2;
-        const radius = i % 2 === 0 ? outerRadius : innerRadius;
-        starPoints.push(new BABYLON.Vector2(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius
-        ));
-      }
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: starPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateStarPoints();
     } else if (cutout.type === 'DM') {
-      // Diamond - 2D polygon
-      const size = (cutout.width || 70) * scale / 2;
-      const diamondPoints = [
-        new BABYLON.Vector2(0, size),
-        new BABYLON.Vector2(size, 0),
-        new BABYLON.Vector2(0, -size),
-        new BABYLON.Vector2(-size, 0)
-      ];
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: diamondPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateDiamondPoints();
     } else if (cutout.type === 'T') {
-      // Triangle - 2D polygon
-      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale / 2;
-      const h = size * Math.sqrt(3) / 2;
-      const trianglePoints = [
-        new BABYLON.Vector2(0, h),
-        new BABYLON.Vector2(-size, -h/2),
-        new BABYLON.Vector2(size, -h/2)
-      ];
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: trianglePoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateTrianglePoints();
     } else if (cutout.type === 'PT') {
-      // Pentagon - 2D polygon
-      const radius = (cutout.diameter || 60) * scale / 2;
-      const pentagonPoints = [];
-      for (let i = 0; i < 5; i++) {
-        const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
-        pentagonPoints.push(new BABYLON.Vector2(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius
-        ));
-      }
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: pentagonPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generatePentagonPoints();
     } else if (cutout.type === 'HX') {
-      // Hexagon - 2D polygon
-      const radius = (cutout.diameter || 50) * scale / 2;
-      const hexagonPoints = [];
-      for (let i = 0; i < 6; i++) {
-        const angle = i * Math.PI / 3;
-        hexagonPoints.push(new BABYLON.Vector2(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius
-        ));
-      }
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: hexagonPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateHexagonPoints();
     } else if (cutout.type === 'OC') {
-      // Octagon - 2D polygon
-      const radius = (cutout.diameter || 60) * scale / 2;
-      const octagonPoints = [];
-      for (let i = 0; i < 8; i++) {
-        const angle = i * Math.PI / 4;
-        octagonPoints.push(new BABYLON.Vector2(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius
-        ));
-      }
-      mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
-        shape: octagonPoints,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene, earcut);
+      normalizedPoints = ShapeGen.generateOctagonPoints();
     } else if (cutout.type === 'SH') {
-      // Circle - 2D disc
-      mesh = BABYLON.MeshBuilder.CreateDisc(`cutout_${cutout.id}`, {
-        radius: (cutout.diameter || 50) * scale / 2,
-        tessellation: 64,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene);
+      normalizedPoints = ShapeGen.generateCirclePoints(64);
     } else if (cutout.type === 'OV') {
-      // Oval - 2D ellipse
-      const w = (cutout.width || 100) * scale;
-      const h = (cutout.height || 60) * scale;
-      mesh = BABYLON.MeshBuilder.CreateDisc(`cutout_${cutout.id}`, {
-        radius: Math.max(w, h) / 2,
-        tessellation: 64,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene);
-      mesh.scaling.x = w / Math.max(w, h);
-      mesh.scaling.y = h / Math.max(w, h);
+      const aspectRatio = (cutout.width || 100) / (cutout.height || 60);
+      normalizedPoints = ShapeGen.generateOvalPoints(aspectRatio, 64);
+    } else if (cutout.type === 'R') {
+      const aspectRatio = (cutout.width || 100) / (cutout.height || 80);
+      normalizedPoints = ShapeGen.generateRectanglePoints(aspectRatio);
     } else {
-      // Rectangle - 2D plane
-      mesh = BABYLON.MeshBuilder.CreatePlane(`cutout_${cutout.id}`, {
-        width: (cutout.width || 100) * scale,
-        height: (cutout.height || 80) * scale,
-        sideOrientation: BABYLON.Mesh.DOUBLESIDE
-      }, scene);
+      // Default rectangle
+      const aspectRatio = (cutout.width || 100) / (cutout.height || 80);
+      normalizedPoints = ShapeGen.generateRectanglePoints(aspectRatio);
     }
+    
+    // Scale points to actual dimensions (width/height independent for uniform scaling)
+    let scaledPoints;
+    if (['SH', 'HR', 'ST', 'DM', 'PT', 'HX', 'OC'].includes(cutout.type)) {
+      // Shapes with diameter - use uniform scaling
+      const diameter = cutout.diameter || 60;
+      scaledPoints = normalizedPoints.map(p => ({
+        x: p.x * diameter * scale / 2,
+        y: p.y * diameter * scale / 2
+      }));
+    } else if (cutout.type === 'T') {
+      // Triangle - use max dimension for uniform scaling
+      const size = Math.max(cutout.width || 100, cutout.height || 80) * scale / 2;
+      scaledPoints = normalizedPoints.map(p => ({
+        x: p.x * size,
+        y: p.y * size
+      }));
+    } else {
+      // Rectangle, Oval - scale with both width and height
+      const w = (cutout.width || 100) * scale;
+      const h = (cutout.height || 80) * scale;
+      scaledPoints = normalizedPoints.map(p => ({
+        x: p.x * w,
+        y: p.y * h
+      }));
+    }
+    
+    // Convert to BABYLON.Vector2 array
+    const babylonPoints = scaledPoints.map(p => new BABYLON.Vector2(p.x, p.y));
+    
+    // Create polygon mesh
+    mesh = BABYLON.MeshBuilder.CreatePolygon(`cutout_${cutout.id}`, {
+      shape: babylonPoints,
+      sideOrientation: BABYLON.Mesh.DOUBLESIDE
+    }, scene, earcut);
 
     mesh.position.x = posX;
     mesh.position.y = posY;
