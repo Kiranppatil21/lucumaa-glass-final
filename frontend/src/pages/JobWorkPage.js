@@ -351,6 +351,41 @@ const JobWorkPage = () => {
     }
   };
 
+  const handleDownloadDesignPDF = async () => {
+    if (!createdOrder) {
+      toast.error('No order found');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/erp/job-work/orders/${createdOrder.id}/design-pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `design_${createdOrder.job_work_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      toast.success('Design PDF downloaded!');
+    } catch (error) {
+      toast.error('Failed to download design PDF');
+      console.error('Design PDF download error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen py-16 md:py-20 bg-slate-50" data-testid="job-work-page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1015,7 +1050,17 @@ const JobWorkPage = () => {
                   {createdOrder?.advance_percent < 100 && <li>Pay remaining amount on delivery</li>}
                 </ol>
               </div>
-              <div className="flex gap-4 justify-center">
+              <div className="flex gap-4 justify-center flex-wrap mb-6">
+                <Button 
+                  onClick={handleDownloadDesignPDF}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  title="Download your job work design as PDF"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Download Design PDF
+                </Button>
+              </div>
+              <div className="flex gap-4 justify-center flex-wrap">
                 <Link to="/portal">
                   <Button variant="outline">Go to Portal</Button>
                 </Link>

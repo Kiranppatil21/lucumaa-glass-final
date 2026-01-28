@@ -934,7 +934,7 @@ async def create_order_with_design(
         SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
         SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
         SENDER_EMAIL = os.environ.get('SENDER_EMAIL', SMTP_USER)
-        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD') or 'Info123@@123'
+        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
         SENDER_NAME = os.environ.get('SENDER_NAME', 'Lucumaa Glass')
         recipient = order_doc.get('customer_email')
         

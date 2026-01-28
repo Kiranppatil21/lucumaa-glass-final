@@ -858,7 +858,7 @@ async def export_pdf(data: PDFExportRequest, user=Depends(get_erp_user)):
                     for i in range(101):
                         t = (i / 100) * 2 * 3.14159
                         x = 16 * pow(sin(t), 3) * scale_factor
-                        y = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        y = (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
                         if i == 0:
                             p.moveTo(cx + x, cy + y)
                         else:
@@ -923,9 +923,9 @@ async def export_pdf(data: PDFExportRequest, user=Depends(get_erp_user)):
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                     
                 elif cutout.type == 'Oval':
-                    # Draw ellipse
+                    # Draw ellipse (full width and height, not half)
                     from reportlab.graphics.shapes import Ellipse
-                    drawing.add(Ellipse(cx, cy, w/2, h/2, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                    drawing.add(Ellipse(cx, cy, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 else:
                     # Rectangle
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
@@ -1429,7 +1429,7 @@ async def export_pdf_multipage(data: PDFExportRequest, user=Depends(get_erp_user
                     for i in range(101):
                         t = (i / 100) * 2 * 3.14159
                         x = 16 * pow(sin(t), 3) * scale_factor
-                        y = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        y = (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
                         if i == 0:
                             p.moveTo(cx + x, cy + y)
                         else:

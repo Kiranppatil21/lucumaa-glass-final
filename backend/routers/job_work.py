@@ -434,7 +434,7 @@ async def send_job_work_email(order: dict):
         SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
         SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
         SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
-        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'Info123@@123')
+        SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
         
         if not SMTP_PASSWORD or not order.get('email'):
             logging.warning(f"Cannot send email - SMTP not configured or no email address")

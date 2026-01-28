@@ -647,6 +647,12 @@ const JobWorkDashboard = () => {
                             return (
                               <circle key={idx} cx={x} cy={y} r={r} fill="#3b82f6" />
                             );
+                          } else if (cutout.type === 'OV') {
+                            const w = ((cutout.width || 100) / 2) * scale;
+                            const h = ((cutout.height || 80) / 2) * scale;
+                            return (
+                              <ellipse key={idx} cx={x} cy={y} rx={w} ry={h} fill="#a855f7" transform={`rotate(${cutout.rotation || 0} ${x} ${y})`} />
+                            );
                           } else {
                             return (
                               <circle key={idx} cx={x} cy={y} r={r} fill="#6b7280" opacity="0.6" />
