@@ -49,7 +49,7 @@ razorpay_client = razorpay.Client(auth=(os.environ.get('RAZORPAY_KEY_ID', ''), o
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 465))
 SMTP_USER = os.environ.get('SMTP_USER', 'info@lucumaaglass.in')
-SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'Info123@@123')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'info@lucumaaglass.in')
 SENDER_NAME = os.environ.get('SENDER_NAME', 'Lucumaa Glass')
 
