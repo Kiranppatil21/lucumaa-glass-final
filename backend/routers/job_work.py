@@ -755,101 +755,115 @@ async def download_job_work_pdf(order_id: str, current_user: dict = Depends(get_
 @job_work_router.get("/orders/{order_id}/design-pdf")
 async def download_job_work_design_pdf(order_id: str, current_user: dict = Depends(get_erp_user)):
     """Download job work design PDF with cutouts/3D design (admin/super_admin)."""
-    from routers.glass_configurator import export_pdf, PDFExportRequest, GlassExportSpec, CutoutExportSpec
-    
-    db = get_db()
-    order = await db.job_work_orders.find_one({"id": order_id}, {"_id": 0})
-    if not order:
-        raise HTTPException(status_code=404, detail="Job work order not found")
-    
-    # Check if order has design data - look in first item or at order level
-    items = order.get('items', [])
-    if not items:
-        raise HTTPException(status_code=404, detail="No items found in order")
-    
-    first_item = items[0]
-    design_data = first_item.get('design_data') or order.get('design_data')
-    cutouts_data = first_item.get('cutouts', []) or order.get('cutouts', [])
-    
-    if not cutouts_data or len(cutouts_data) == 0:
-        raise HTTPException(status_code=404, detail="No design data found for this job work order. Design PDF is only available for orders created from the 3D configurator with cutouts.")
-    
-    # Build glass config from job work data
-    width_mm = design_data.get('width_mm') if design_data else round(float(first_item.get('width_inch', 0)) * 25.4)
-    height_mm = design_data.get('height_mm') if design_data else round(float(first_item.get('height_inch', 0)) * 25.4)
-    thickness_mm = design_data.get('thickness_mm') if design_data else first_item.get('thickness_mm', 8)
-    
-    glass_config = GlassExportSpec(
-        width_mm=width_mm,
-        height_mm=height_mm,
-        thickness_mm=thickness_mm,
-        glass_type=f"Job Work - {design_data.get('job_work_type', 'Toughening') if design_data else 'Toughening'}",
-        color_name="Clear",
-        application="Job Work Order"
-    )
-    
-    # Map cutouts to export format
-    cutout_shapes = ['SH', 'R', 'T', 'HX', 'HR', 'ST', 'PT', 'OV', 'DM', 'OC']
-    shape_names = {
-        'SH': 'Hole', 'R': 'Rectangle', 'T': 'Triangle', 'HX': 'Hexagon',
-        'HR': 'Heart', 'ST': 'Star', 'PT': 'Pentagon', 'OV': 'Oval',
-        'DM': 'Diamond', 'OC': 'Octagon'
-    }
-    shape_labels = {
-        'SH': 'H', 'R': 'R', 'T': 'T', 'HX': 'HX',
-        'HR': 'HR', 'ST': 'ST', 'PT': 'PT', 'OV': 'OV',
-        'DM': 'DM', 'OC': 'OC'
-    }
-    
-    cutouts_export = []
-    for idx, cutout in enumerate(cutouts_data, 1):
-        cutout_type = cutout.get('type', 'SH')
-        label = shape_labels.get(cutout_type, 'C')
+    try:
+        from routers.glass_configurator import export_pdf, PDFExportRequest, GlassExportSpec, CutoutExportSpec
         
-        # Calculate bounds
-        diameter = cutout.get('diameter', 50)
-        width = cutout.get('width', 100)
-        height = cutout.get('height', 80)
-        x = cutout.get('x', width_mm / 2)
-        y = cutout.get('y', height_mm / 2)
-        rotation = cutout.get('rotation', 0)
+        db = get_db()
+        order = await db.job_work_orders.find_one({"id": order_id}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Job work order not found")
         
-        # Calculate edge distances
-        if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC']:
-            half_size = diameter / 2
-            half_height = half_size
+        # Check if order has design data - look in first item or at order level
+        items = order.get('items', [])
+        if not items:
+            raise HTTPException(status_code=404, detail="No items found in order")
+        
+        first_item = items[0]
+        design_data = first_item.get('design_data') or order.get('design_data')
+        cutouts_data = first_item.get('cutouts', []) or order.get('cutouts', [])
+        
+        if not cutouts_data or len(cutouts_data) == 0:
+            raise HTTPException(status_code=404, detail="No design data found for this job work order. Design PDF is only available for orders created from the 3D configurator with cutouts.")
+        
+        # Build glass config from job work data - safely handle None values
+        if design_data:
+            width_mm = design_data.get('width_mm', round(float(first_item.get('width_inch', 0)) * 25.4))
+            height_mm = design_data.get('height_mm', round(float(first_item.get('height_inch', 0)) * 25.4))
+            thickness_mm = design_data.get('thickness_mm', first_item.get('thickness_mm', 8))
+            job_work_type = design_data.get('job_work_type', 'Toughening')
         else:
-            half_size = width / 2
-            half_height = height / 2
+            width_mm = round(float(first_item.get('width_inch', 0)) * 25.4)
+            height_mm = round(float(first_item.get('height_inch', 0)) * 25.4)
+            thickness_mm = first_item.get('thickness_mm', 8)
+            job_work_type = 'Toughening'
         
-        left_edge = max(0, round(x - half_size))
-        right_edge = max(0, round(width_mm - x - half_size))
-        top_edge = max(0, round(height_mm - y - half_height))
-        bottom_edge = max(0, round(y - half_height))
+        glass_config = GlassExportSpec(
+            width_mm=width_mm,
+            height_mm=height_mm,
+            thickness_mm=thickness_mm,
+            glass_type=f"Job Work - {job_work_type}",
+            color_name="Clear",
+            application="Job Work Order"
+        )
         
-        cutouts_export.append(CutoutExportSpec(
-            number=f"{label}{idx}",
-            type=shape_names.get(cutout_type, 'Unknown'),
-            diameter=diameter if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
-            width=width if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
-            height=height if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
-            x=x,
-            y=y,
-            rotation=rotation,
-            left_edge=left_edge,
-            right_edge=right_edge,
-            top_edge=top_edge,
-            bottom_edge=bottom_edge
-        ))
+        # Map cutouts to export format
+        shape_names = {
+            'SH': 'Hole', 'R': 'Rectangle', 'T': 'Triangle', 'HX': 'Hexagon',
+            'HR': 'Heart', 'ST': 'Star', 'PT': 'Pentagon', 'OV': 'Oval',
+            'DM': 'Diamond', 'OC': 'Octagon'
+        }
+        shape_labels = {
+            'SH': 'H', 'R': 'R', 'T': 'T', 'HX': 'HX',
+            'HR': 'HR', 'ST': 'ST', 'PT': 'PT', 'OV': 'OV',
+            'DM': 'DM', 'OC': 'OC'
+        }
+        
+        cutouts_export = []
+        for idx, cutout in enumerate(cutouts_data, 1):
+            cutout_type = cutout.get('type', 'SH')
+            label = shape_labels.get(cutout_type, 'C')
+            
+            # Calculate bounds
+            diameter = cutout.get('diameter', 50)
+            width = cutout.get('width', 100)
+            height = cutout.get('height', 80)
+            x = cutout.get('x', width_mm / 2)
+            y = cutout.get('y', height_mm / 2)
+            rotation = cutout.get('rotation', 0)
+            
+            # Calculate edge distances
+            if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC']:
+                half_size = diameter / 2
+                half_height = half_size
+            else:
+                half_size = width / 2
+                half_height = height / 2
+            
+            left_edge = max(0, round(x - half_size))
+            right_edge = max(0, round(width_mm - x - half_size))
+            top_edge = max(0, round(height_mm - y - half_height))
+            bottom_edge = max(0, round(y - half_height))
+            
+            cutouts_export.append(CutoutExportSpec(
+                number=f"{label}{idx}",
+                type=shape_names.get(cutout_type, 'Unknown'),
+                diameter=diameter if cutout_type in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+                width=width if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+                height=height if cutout_type not in ['SH', 'HX', 'HR', 'ST', 'PT', 'OC'] else None,
+                x=x,
+                y=y,
+                rotation=rotation,
+                left_edge=left_edge,
+                right_edge=right_edge,
+                top_edge=top_edge,
+                bottom_edge=bottom_edge
+            ))
+        
+        pdf_request = PDFExportRequest(
+            glass_config=glass_config,
+            cutouts=cutouts_export,
+            quantity=order.get('summary', {}).get('total_pieces', 1)
+        )
+        
+        # Generate PDF using existing glass configurator export
+        return await export_pdf(pdf_request, current_user)
     
-    pdf_request = PDFExportRequest(
-        glass_config=glass_config,
-        cutouts=cutouts_export,
-        quantity=order.get('summary', {}).get('total_pieces', 1)
-    )
-    
-    # Generate PDF using existing glass configurator export
-    return await export_pdf(pdf_request, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate design PDF: {str(e)}")
 
 # ============ UPDATE STATUS ============
 
