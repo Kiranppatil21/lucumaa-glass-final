@@ -109,6 +109,19 @@ const JobWorkDashboard = () => {
     }
   };
 
+  const getDesignCutouts = (order) => (
+    order?.items?.[0]?.cutouts ||
+    order?.cutouts ||
+    order?.items?.[0]?.design_data?.cutouts ||
+    order?.design_data?.cutouts ||
+    []
+  );
+
+  const hasDesignCutouts = (order) => {
+    const cutouts = getDesignCutouts(order);
+    return Array.isArray(cutouts) && cutouts.length > 0;
+  };
+
   const handleDownloadDesignPDF = async (order) => {
     try {
       const token = localStorage.getItem('token');
@@ -117,15 +130,8 @@ const JobWorkDashboard = () => {
         return;
       }
 
-      const hasDesignData = Boolean(
-        order?.design_data ||
-        (order?.cutouts && order.cutouts.length > 0) ||
-        (order?.items?.[0]?.design_data) ||
-        (order?.items?.[0]?.cutouts && order.items[0].cutouts.length > 0)
-      );
-
-      // Check if order has design data
-      if (!hasDesignData) {
+      // Check if order has design cutouts
+      if (!hasDesignCutouts(order)) {
         toast.error('No design data available for this order');
         return;
       }
@@ -607,7 +613,7 @@ const JobWorkDashboard = () => {
               )}
 
               {/* Design Preview */}
-              {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts) && (
+              {hasDesignCutouts(selectedOrder) && (
                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 border border-slate-200">
                   <h4 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
                     <Eye className="w-4 h-4" />
@@ -620,7 +626,7 @@ const JobWorkDashboard = () => {
                         <rect x="10" y="10" width="880" height="580" fill="#d4e5f7" opacity="0.4" stroke="#3b82f6" strokeWidth="2" />
                         
                         {/* Render cutouts */}
-                        {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).map((cutout, idx) => {
+                        {getDesignCutouts(selectedOrder).map((cutout, idx) => {
                           const scale = 0.85;
                           const x = 10 + (cutout.x || 450) * scale;
                           const y = 10 + (cutout.y || 300) * scale;
@@ -670,7 +676,7 @@ const JobWorkDashboard = () => {
                       </svg>
                     </div>
                     <p className="text-xs text-slate-500 text-center mt-2">
-                      {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).length} cutout{(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts || []).length !== 1 ? 's' : ''}
+                      {getDesignCutouts(selectedOrder).length} cutout{getDesignCutouts(selectedOrder).length !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
@@ -678,7 +684,7 @@ const JobWorkDashboard = () => {
 
               {/* Download Button */}
               <div className="flex gap-2">
-                {(selectedOrder.items?.[0]?.cutouts || selectedOrder.cutouts) && (
+                {hasDesignCutouts(selectedOrder) && (
                   <Button 
                     variant="default"
                     onClick={() => handleDownloadDesignPDF(selectedOrder)}
