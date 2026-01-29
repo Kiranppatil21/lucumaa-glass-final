@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { erpApi } from '../../utils/erpApi';
+import { API_ROOT } from '../../utils/apiBase';
 import ShareModal from '../../components/ShareModal';
 
 const JobWorkDashboard = () => {
@@ -116,13 +117,20 @@ const JobWorkDashboard = () => {
         return;
       }
 
+      const hasDesignData = Boolean(
+        order?.design_data ||
+        (order?.cutouts && order.cutouts.length > 0) ||
+        (order?.items?.[0]?.design_data) ||
+        (order?.items?.[0]?.cutouts && order.items[0].cutouts.length > 0)
+      );
+
       // Check if order has design data
-      if (!order.cutouts && !order.design_data) {
+      if (!hasDesignData) {
         toast.error('No design data available for this order');
         return;
       }
 
-      const response = await fetch(`/api/erp/job-work/orders/${order.id}/design-pdf`, {
+      const response = await fetch(`${API_ROOT}/erp/job-work/orders/${order.id}/design-pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`

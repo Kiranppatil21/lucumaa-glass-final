@@ -838,20 +838,8 @@ async def export_pdf(data: PDFExportRequest, user=Depends(get_erp_user)):
             if cutout.diameter:
                 radius = (cutout.diameter / 2) * scale
                 
-                if cutout.type == 'Star':
-                    # Proper 5-pointed star
-                    from reportlab.graphics.shapes import Polygon
-                    outer_r = radius
-                    inner_r = radius * 0.38
-                    points = []
-                    for i in range(10):
-                        angle = (i * 3.14159 / 5) - 3.14159 / 2
-                        r = outer_r if i % 2 == 0 else inner_r
-                        points.extend([cx + r * cos(angle), cy + r * sin(angle)])
-                    drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
-                    
-                elif cutout.type == 'Heart':
-                    # Proper heart shape using Path
+                elif cutout.type in ['Heart', 'HEART', 'HR']:
+                    # Proper heart shape using Path (NO NEGATIVE Y for upright orientation)
                     from reportlab.graphics.shapes import Path
                     p = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
                     scale_factor = radius / 20
@@ -922,10 +910,10 @@ async def export_pdf(data: PDFExportRequest, user=Depends(get_erp_user)):
                     ]
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                     
-                elif cutout.type == 'Oval':
-                    # Draw ellipse (full width and height, not half)
+                elif cutout.type in ['Oval', 'OV', 'OVAL']:
+                    # Draw ellipse - use top-left corner coordinates
                     from reportlab.graphics.shapes import Ellipse
-                    drawing.add(Ellipse(cx, cy, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                    drawing.add(Ellipse(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 else:
                     # Rectangle
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
@@ -1429,7 +1417,7 @@ async def export_pdf_multipage(data: PDFExportRequest, user=Depends(get_erp_user
                     for i in range(101):
                         t = (i / 100) * 2 * 3.14159
                         x = 16 * pow(sin(t), 3) * scale_factor
-                        y = (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        y = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
                         if i == 0:
                             p.moveTo(cx + x, cy + y)
                         else:
@@ -1459,9 +1447,9 @@ async def export_pdf_multipage(data: PDFExportRequest, user=Depends(get_erp_user
                     size = max(w, h) / 2
                     points = [cx, cy + size, cx + size, cy, cx, cy - size, cx - size, cy]
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
-                elif cutout.type == 'Oval':
+                elif cutout.type in ['Oval', 'OV']:
                     from reportlab.graphics.shapes import Ellipse
-                    drawing.add(Ellipse(cx, cy, w/2, h/2, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                    drawing.add(Ellipse(cx, cy, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 else:
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
             

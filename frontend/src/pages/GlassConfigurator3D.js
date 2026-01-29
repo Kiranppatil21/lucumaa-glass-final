@@ -896,7 +896,7 @@ const GlassConfigurator3D = () => {
     let normalizedPoints = [];
     
     // Get normalized points based on shape type
-    if (cutout.type === 'HR') {
+    if (cutout.type === 'HR' || cutout.type === 'Heart') {
       normalizedPoints = ShapeGen.generateHeartPoints(200);
     } else if (cutout.type === 'ST') {
       normalizedPoints = ShapeGen.generateStarPoints();
@@ -912,7 +912,7 @@ const GlassConfigurator3D = () => {
       normalizedPoints = ShapeGen.generateOctagonPoints();
     } else if (cutout.type === 'SH') {
       normalizedPoints = ShapeGen.generateCirclePoints(64);
-    } else if (cutout.type === 'OV') {
+    } else if (cutout.type === 'OV' || cutout.type === 'Oval') {
       const aspectRatio = (cutout.width || 100) / (cutout.height || 60);
       normalizedPoints = ShapeGen.generateOvalPoints(aspectRatio, 64);
     } else if (cutout.type === 'R') {
@@ -971,7 +971,7 @@ const GlassConfigurator3D = () => {
     // Scale and convert normalized points to Babylon.js Vector2
     if (!['CN', 'PG'].includes(cutout.type) && !mesh) {
       let scaledPoints;
-      if (['SH', 'HR', 'ST', 'DM', 'PT', 'HX', 'OC'].includes(cutout.type)) {
+      if (['SH', 'HR', 'Heart', 'ST', 'DM', 'PT', 'HX', 'OC'].includes(cutout.type)) {
         // Shapes with diameter - use uniform scaling
         const diameter = cutout.diameter || 60;
         scaledPoints = normalizedPoints.map(p => ({

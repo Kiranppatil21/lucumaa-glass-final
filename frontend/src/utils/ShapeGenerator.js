@@ -14,7 +14,7 @@ export function generateHeartPoints(resolution = 200) {
   
   for (let i = 0; i <= resolution; i++) {
     const t = (i / resolution) * Math.PI * 2;
-    // Parametric equations for heart shape
+    // Parametric equations for heart shape (upright orientation - NO negative Y)
     // x = 16sin³(t), y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
     const x = 16 * Math.pow(Math.sin(t), 3);
     const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
