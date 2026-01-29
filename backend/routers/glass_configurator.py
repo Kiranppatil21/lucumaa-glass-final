@@ -838,7 +838,7 @@ async def export_pdf(data: PDFExportRequest, user=Depends(get_erp_user)):
             if cutout.diameter:
                 radius = (cutout.diameter / 2) * scale
                 
-                elif cutout.type in ['Heart', 'HEART', 'HR']:
+                if cutout.type in ['Heart', 'HEART', 'HR']:
                     # Proper heart shape using Path (NO NEGATIVE Y for upright orientation)
                     from reportlab.graphics.shapes import Path
                     p = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
