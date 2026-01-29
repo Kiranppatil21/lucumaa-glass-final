@@ -1410,14 +1410,14 @@ async def export_pdf_multipage(data: PDFExportRequest, user=Depends(get_erp_user
                         points.extend([cx + r * cos(angle), cy + r * sin(angle)])
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif cutout.type == 'Heart':
-                    # Proper heart shape using Path (NO NEGATIVE Y for upright orientation)
+                    # Proper heart shape using Path
                     from reportlab.graphics.shapes import Path
                     p = Path(fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1)
                     scale_factor = radius / 20
                     for i in range(101):
                         t = (i / 100) * 2 * 3.14159
                         x = 16 * pow(sin(t), 3) * scale_factor
-                        y = (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
+                        y = -(13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t)) * scale_factor
                         if i == 0:
                             p.moveTo(cx + x, cy + y)
                         else:
@@ -1449,7 +1449,7 @@ async def export_pdf_multipage(data: PDFExportRequest, user=Depends(get_erp_user
                     drawing.add(Polygon(points, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 elif cutout.type in ['Oval', 'OV']:
                     from reportlab.graphics.shapes import Ellipse
-                    drawing.add(Ellipse(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
+                    drawing.add(Ellipse(cx, cy, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
                 else:
                     drawing.add(Rect(cx - w/2, cy - h/2, w, h, fillColor=cutout_color, strokeColor=colors.black, strokeWidth=1))
             

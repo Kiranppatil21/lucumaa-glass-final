@@ -2049,8 +2049,37 @@ const JobWork3DConfigurator = () => {
                     if (!response.ok) throw new Error('Failed to save');
                     const result = await response.json();
                     
-                    toast.success(`Job Work Saved! Order: ${result.order?.job_work_number}`);
-                    setTimeout(() => navigate('/portal'), 1500);
+                    // Show success message with PDF download option
+                    toast.success(
+                      <div>
+                        <div>Job Work Saved! Order: {result.order?.job_work_number}</div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const pdfResponse = await fetch(`${API_URL}/erp/job-work/orders/${result.order.id}/pdf`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                              });
+                              if (pdfResponse.ok) {
+                                const blob = await pdfResponse.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `JobWork_${result.order.job_work_number}.pdf`;
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                              }
+                            } catch (err) {
+                              console.error('PDF download error:', err);
+                            }
+                          }}
+                          className="mt-2 px-3 py-1 bg-white text-orange-600 rounded text-sm font-medium"
+                        >
+                          📄 Download Design PDF
+                        </button>
+                      </div>,
+                      { duration: 8000, position: 'top-center' }
+                    );
+                    setTimeout(() => navigate('/portal'), 8000);
                   } catch (error) {
                     console.error('Save error:', error);
                     toast.error('Failed to save job work. Please try again.');
