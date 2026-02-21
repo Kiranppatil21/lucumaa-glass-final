@@ -1,0 +1,6 @@
+class Validators {
+  static String? requiredField(String? value, {String message = 'Required'}) {
+    if (value == null || value.trim().isEmpty) return message;
+    return null;
+  }
+}
